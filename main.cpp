@@ -9,3 +9,5 @@
 #if defined(PLATFORM_WEB)
 #include <emscripten/emscripten.h>
 #endif
+
+constexpr int SCR_W = 720;
