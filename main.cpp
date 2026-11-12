@@ -43,3 +43,11 @@ const Color LVL_C[10] = {
 const float LVL_R[10] = { 16.0f, 21.0f, 27.0f, 35.0f, 46.0f, 60.0f, 78.0f, 101.0f, 131.0f, 170.0f };
 
 enum State { TITLE, PLAYING, GAMEOVER };
+
+struct Circle {
+    Vector2 p, v;
+    int lvl;
+    float r, m;
+    bool dead;
+    float scaleAnim;
+};
