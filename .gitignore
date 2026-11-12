@@ -1,0 +1,7 @@
+*.exe
+*.o
+*.obj
+highscore.dat
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
