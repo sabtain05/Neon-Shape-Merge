@@ -11,3 +11,4 @@
 #endif
 
 constexpr int SCR_W = 720;
+constexpr int SCR_H = 920;
