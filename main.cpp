@@ -19,3 +19,7 @@ constexpr float BOX_Y = (SCR_H - BOX_H) / 2.0f + 20.0f;
 constexpr float DANGER_Y = BOX_Y + 80.0f;
 constexpr float GRAVITY = 2000.0f;
 constexpr float FIXED_DT = 1.0f / 120.0f;
+constexpr int SUBSTEPS = 8;
+constexpr float RESTITUTION = 0.2f;
+constexpr float FRICTION = 0.99f;
+constexpr float DROP_CD = 0.5f;
