@@ -23,3 +23,6 @@ constexpr int SUBSTEPS = 8;
 constexpr float RESTITUTION = 0.2f;
 constexpr float FRICTION = 0.99f;
 constexpr float DROP_CD = 0.5f;
+
+const Color BG_COLOR = { 10,15,30,255 };
+const Color BOX_COLOR = {40,60,100,255};
