@@ -70,3 +70,22 @@ struct MergeEvent {
     int nextLvl;
     Vector2 v1, v2;
 };
+
+class Game {
+public:
+    State state = TITLE;
+    std::vector<Circle> circles;
+    std::vector<Particle> particles;
+    std::vector<FloatingText> texts;
+    
+    int nextLvl = 0;
+    float dropTimer = 0.0f;
+    int score = 0;
+    int highScore = 0;
+    int combo = 0;
+    float comboTimer = 0.0f;
+    float dangerTimer = 0.0f;
+    float screenShake = 0.0f;
+    float acc = 0.0f;
+
+    
