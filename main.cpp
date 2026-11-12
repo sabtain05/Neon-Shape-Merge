@@ -16,3 +16,4 @@ constexpr float BOX_W = 600.0f;
 constexpr float BOX_H = 800.0f;
 constexpr float BOX_X = (SCR_W - BOX_W) / 2.0f;
 constexpr float BOX_Y = (SCR_H - BOX_H) / 2.0f + 20.0f;
+constexpr float DANGER_Y = BOX_Y + 80.0f;
