@@ -51,3 +51,9 @@ struct Circle {
     bool dead;
     float scaleAnim;
 };
+
+struct Particle {
+    Vector2 p, v;
+    Color c;
+    float life, maxLife, r;
+};
