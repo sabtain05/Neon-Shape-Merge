@@ -64,3 +64,9 @@ struct FloatingText {
     Color c;
     float life, maxLife;
 };
+
+struct MergeEvent {
+    Vector2 p;
+    int nextLvl;
+    Vector2 v1, v2;
+};
