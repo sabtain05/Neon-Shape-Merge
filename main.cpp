@@ -14,3 +14,5 @@ constexpr int SCR_W = 720;
 constexpr int SCR_H = 920;
 constexpr float BOX_W = 600.0f;
 constexpr float BOX_H = 800.0f;
+constexpr float BOX_X = (SCR_W - BOX_W) / 2.0f;
+constexpr float BOX_Y = (SCR_H - BOX_H) / 2.0f + 20.0f;
