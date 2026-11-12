@@ -57,3 +57,10 @@ struct Particle {
     Color c;
     float life, maxLife, r;
 };
+
+struct FloatingText {
+    Vector2 p;
+    std::string text;
+    Color c;
+    float life, maxLife;
+};
