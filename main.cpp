@@ -7,3 +7,4 @@
 #include <fstream>
 
 #if defined(PLATFORM_WEB)
+#include <emscripten/emscripten.h>
