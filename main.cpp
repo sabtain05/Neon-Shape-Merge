@@ -5,3 +5,5 @@
 #include <cmath>
 #include <algorithm>
 #include <fstream>
+
+#if defined(PLATFORM_WEB)
