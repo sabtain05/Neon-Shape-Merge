@@ -88,4 +88,7 @@ public:
     float screenShake = 0.0f;
     float acc = 0.0f;
 
-    
+    Game() {
+        LoadScore();
+        PickNext();
+    }
