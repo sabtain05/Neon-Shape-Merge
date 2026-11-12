@@ -92,3 +92,12 @@ public:
         LoadScore();
         PickNext();
     }
+
+    void LoadScore() {
+#if !defined(PLATFORM_WEB)
+        std::ifstream f("highscore.dat");
+        if (f.is_open()) {
+            f >> highScore;
+        }
+#endif
+    }
