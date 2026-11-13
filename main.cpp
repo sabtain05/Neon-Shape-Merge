@@ -401,11 +401,6 @@ public:
         DrawText("NEXT", SCR_W - 100, 20, 20, WHITE);
         DrawGlowCircle({ SCR_W - 60.0f, 70.0f }, LVL_R[nextLvl] * 0.5f, LVL_C[nextLvl], 1.0f);
 
-        for (int i = 0; i < 10; i++) {
-            DrawCircle(BOX_X + 20 + i * 25, BOX_Y + BOX_H + 30, 8, LVL_C[i]);
-            if (i < 9) DrawLine(BOX_X + 28 + i * 25, BOX_Y + BOX_H + 30, BOX_X + 45 + i * 25, BOX_Y + BOX_H + 30, GRAY);
-        }
-
         DrawText("A Sabtain Ali production", SCR_W / 2 - MeasureText("A Sabtain Ali production", 20) / 2, SCR_H - 30, 20, Fade(WHITE, 0.4f));
 
         if (state == TITLE) {
@@ -429,7 +424,6 @@ void UpdateDrawFrame() {
     game->Update();
     game->Draw();
 
-    
     BeginDrawing();
     ClearBackground(BLACK);
     float scale = fmin((float)GetScreenWidth() / SCR_W, (float)GetScreenHeight() / SCR_H);
