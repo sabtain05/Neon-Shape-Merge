@@ -1,5 +1,5 @@
 #include "raylib.h"
-#include"raymath.h"
+#include "raymath.h"
 #include <vector>
 #include <string>
 #include <cmath>
@@ -11,7 +11,7 @@
 #endif
 
 constexpr int SCR_W = 720;
-constexpr int SCR_H = 920;
+constexpr int SCR_H = 960;
 constexpr float BOX_W = 600.0f;
 constexpr float BOX_H = 800.0f;
 constexpr float BOX_X = (SCR_W - BOX_W) / 2.0f;
@@ -24,20 +24,20 @@ constexpr float RESTITUTION = 0.2f;
 constexpr float FRICTION = 0.99f;
 constexpr float DROP_CD = 0.5f;
 
-const Color BG_COLOR = { 10,15,30,255 };
-const Color BOX_COLOR = {40,60,100,255};
+const Color BG_COLOR = { 10, 15, 30, 255 };
+const Color BOX_COLOR = { 40, 60, 100, 255 };
 
 const Color LVL_C[10] = {
-    {0,255,255,255},
-    {255,0,255,255},
-    {0,255,0,255},
-    {255,255,0,255},
-    {255,165,0,255},
-    {255,105,180,255},
-    {138,43,226,255},
-    {0,250,154,255},
-    {255,215,0,255},
-    {255,255,255,255}
+    { 0, 255, 255, 255 },
+    { 255, 0, 255, 255 },
+    { 0, 255, 0, 255 },
+    { 255, 255, 0, 255 },
+    { 255, 165, 0, 255 },
+    { 255, 105, 180, 255 },
+    { 138, 43, 226, 255 },
+    { 0, 250, 154, 255 },
+    { 255, 215, 0, 255 },
+    { 255, 255, 255, 255 }
 };
 
 const float LVL_R[10] = { 16.0f, 21.0f, 27.0f, 35.0f, 46.0f, 60.0f, 78.0f, 101.0f, 131.0f, 170.0f };
@@ -78,6 +78,9 @@ public:
     std::vector<Particle> particles;
     std::vector<FloatingText> texts;
     
+    RenderTexture2D target;
+    Vector2 vMouse = { 0, 0 };
+
     int nextLvl = 0;
     float dropTimer = 0.0f;
     int score = 0;
@@ -89,8 +92,14 @@ public:
     float acc = 0.0f;
 
     Game() {
+        target = LoadRenderTexture(SCR_W, SCR_H);
+        SetTextureFilter(target.texture, TEXTURE_FILTER_BILINEAR);
         LoadScore();
         PickNext();
+    }
+
+    ~Game() {
+        UnloadRenderTexture(target);
     }
 
     void LoadScore() {
@@ -151,13 +160,18 @@ public:
         float dt = GetFrameTime();
         if (dt > 0.1f) dt = 0.1f;
 
+        float scale = fmin((float)GetScreenWidth() / SCR_W, (float)GetScreenHeight() / SCR_H);
+        Vector2 rawMouse = GetMousePosition();
+        vMouse.x = (rawMouse.x - (GetScreenWidth() - (SCR_W * scale)) * 0.5f) / scale;
+        vMouse.y = (rawMouse.y - (GetScreenHeight() - (SCR_H * scale)) * 0.5f) / scale;
+
         if (state == TITLE) {
-            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) || IsKeyPressed(KEY_SPACE)) Reset();
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) || IsKeyPressed(KEY_SPACE) || GetTouchPointCount() > 0) Reset();
             return;
         }
 
         if (state == GAMEOVER) {
-            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) || IsKeyPressed(KEY_R)) Reset();
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) || IsKeyPressed(KEY_R) || GetTouchPointCount() > 0) Reset();
             return;
         }
 
@@ -175,8 +189,7 @@ public:
 
         if (dropTimer > 0.0f) dropTimer -= dt;
 
-        Vector2 mouse = GetMousePosition();
-        float hoverX = Clamp(mouse.x, BOX_X + LVL_R[nextLvl] + 5, BOX_X + BOX_W - LVL_R[nextLvl] - 5);
+        float hoverX = Clamp(vMouse.x, BOX_X + LVL_R[nextLvl] + 5, BOX_X + BOX_W - LVL_R[nextLvl] - 5);
 
         if ((IsMouseButtonPressed(MOUSE_LEFT_BUTTON) || GetTouchPointCount() > 0) && dropTimer <= 0.0f) {
             circles.push_back({
@@ -349,7 +362,7 @@ public:
     }
 
     void Draw() {
-        BeginDrawing();
+        BeginTextureMode(target);
         ClearBackground(BG_COLOR);
 
         Vector2 camOff = { 0, 0 };
@@ -373,7 +386,7 @@ public:
         }
 
         if (state == PLAYING && dropTimer <= 0.0f) {
-            float hoverX = Clamp(GetMousePosition().x, BOX_X + LVL_R[nextLvl] + 5, BOX_X + BOX_W - LVL_R[nextLvl] - 5);
+            float hoverX = Clamp(vMouse.x, BOX_X + LVL_R[nextLvl] + 5, BOX_X + BOX_W - LVL_R[nextLvl] - 5);
             DrawGlowCircle({ hoverX + camOff.x, BOX_Y - LVL_R[nextLvl] + camOff.y - 20 }, LVL_R[nextLvl], LVL_C[nextLvl], 1.0f);
             DrawLineEx({ hoverX + camOff.x, BOX_Y + camOff.y }, { hoverX + camOff.x, BOX_Y + BOX_H + camOff.y }, 1, Fade(LVL_C[nextLvl], 0.3f));
         }
@@ -393,6 +406,8 @@ public:
             if (i < 9) DrawLine(BOX_X + 28 + i * 25, BOX_Y + BOX_H + 30, BOX_X + 45 + i * 25, BOX_Y + BOX_H + 30, GRAY);
         }
 
+        DrawText("A Sabtain Ali production", SCR_W / 2 - MeasureText("A Sabtain Ali production", 20) / 2, SCR_H - 30, 20, Fade(WHITE, 0.4f));
+
         if (state == TITLE) {
             DrawRectangle(0, 0, SCR_W, SCR_H, Fade(BLACK, 0.7f));
             DrawText("NEON SHAPE-MERGE", SCR_W / 2 - MeasureText("NEON SHAPE-MERGE", 40) / 2, SCR_H / 2 - 100, 40, {0, 255, 255, 255});
@@ -404,7 +419,7 @@ public:
             DrawText("CLICK TO RESTART", SCR_W / 2 - MeasureText("CLICK TO RESTART", 20) / 2, SCR_H / 2 + 40, 20, GRAY);
         }
 
-        EndDrawing();
+        EndTextureMode();
     }
 };
 
@@ -413,10 +428,22 @@ Game* game = nullptr;
 void UpdateDrawFrame() {
     game->Update();
     game->Draw();
+
+    
+    BeginDrawing();
+    ClearBackground(BLACK);
+    float scale = fmin((float)GetScreenWidth() / SCR_W, (float)GetScreenHeight() / SCR_H);
+    
+    DrawTexturePro(game->target.texture,
+        { 0.0f, 0.0f, (float)game->target.texture.width, (float)-game->target.texture.height },
+        { (GetScreenWidth() - ((float)SCR_W * scale)) * 0.5f, (GetScreenHeight() - ((float)SCR_H * scale)) * 0.5f, (float)SCR_W * scale, (float)SCR_H * scale },
+        { 0, 0 }, 0.0f, WHITE);
+        
+    EndDrawing();
 }
 
 int main() {
-    SetConfigFlags(FLAG_MSAA_4X_HINT);
+    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
     InitWindow(SCR_W, SCR_H, "Neon Shape-Merge");
     SetTargetFPS(60);
 
