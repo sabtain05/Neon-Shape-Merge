@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Neon Shape-Merge</title>
     <style>
         html, body {
@@ -11,17 +11,18 @@
             width: 100%;
             height: 100%;
             background-color: #0a0f1e;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             overflow: hidden;
             touch-action: none;
+            position: fixed;
         }
         canvas.emscripten {
-            border: 0 none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
             background-color: #0a0f1e;
-            max-width: 100vw;
-            max-height: 100vh;
             object-fit: contain;
             outline: none;
         }
