@@ -3,6 +3,7 @@
 *.obj
 highscore.dat
 .vscode/*
-raylib/
 !.vscode/tasks.json
 !.vscode/launch.json
+emsdk/
+raylib/
