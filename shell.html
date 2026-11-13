@@ -38,6 +38,55 @@
             })()
         };
     </script>
+    <script>
+        const DB_URL = "https://neonshapemerge-default-rtdb.firebaseio.com/";
+        
+        window.globalTotalPlayers = 0;
+        window.globalRecentPlayers = ["Loading...", "", "", "", ""];
+        window.hasRegistered = false;
+
+        window.fetchPlayerData = async function() {
+            try {
+                let res = await fetch(DB_URL + "/players.json");
+                let data = await res.json();
+                if (data) {
+                    let keys = Object.keys(data);
+                    window.globalTotalPlayers = keys.length;
+                    
+                    let recent = [];
+                    for (let i = keys.length - 1; i >= Math.max(0, keys.length - 5); i--) {
+                        recent.push(data[keys[i]].name);
+                    }
+                    while (recent.length < 5) recent.push("");
+                    window.globalRecentPlayers = recent;
+                }
+            } catch (e) {
+                console.error("Firebase fetch error:", e);
+            }
+        };
+
+        window.registerPlayer = async function(playerName) {
+            if (window.hasRegistered) return;
+            window.hasRegistered = true;
+            try {
+                await fetch(DB_URL + "/players.json", {
+                    method: "POST",
+                    body: JSON.stringify({ name: playerName, time: Date.now() })
+                });
+                window.fetchPlayerData();
+            } catch (e) {}
+        };
+
+        window.onload = () => {
+            setTimeout(() => {
+                let name = prompt("Enter your username for the global network:", "Guest_" + Math.floor(Math.random()*1000));
+                if (!name || name.trim() === "") name = "Anonymous";
+                window.registerPlayer(name.trim().substring(0, 15)); 
+                setInterval(window.fetchPlayerData, 5000);
+                window.fetchPlayerData();
+            }, 1000);
+        };
+    </script>
     {{{ SCRIPT }}}
 </body>
 </html>

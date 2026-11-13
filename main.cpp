@@ -5,16 +5,45 @@
 #include <cmath>
 #include <algorithm>
 #include <fstream>
+#include <cstdio>
 
 #if defined(PLATFORM_WEB)
 #include <emscripten/emscripten.h>
 #endif
 
-constexpr int SCR_W = 720;
+#if defined(PLATFORM_WEB)
+EM_JS(int, GetTotalPlayersJS, (), {
+    return window.globalTotalPlayers || 0;
+});
+
+EM_JS(void, GetRecentPlayerJS, (int index, char* buffer, int maxLen), {
+    var name = "";
+    if (window.globalRecentPlayers && window.globalRecentPlayers.length > index) {
+        name = window.globalRecentPlayers[index] || "";
+    }
+    for (var i = 0; i < name.length && i < maxLen - 1; i++) {
+        HEAP8[buffer + i] = name.charCodeAt(i);
+    }
+    HEAP8[buffer + Math.min(name.length, maxLen - 1)] = 0;
+});
+#else
+int GetTotalPlayersJS() { return 1204; }
+void GetRecentPlayerJS(int index, char* buffer, int maxLen) {
+    std::vector<std::string> mock = {"Sabtain05", "NeonKing", "ShapeMaster", "VercelDev", "Player_992"};
+    std::string name = (index < 5) ? mock[index] : "";
+    snprintf(buffer, maxLen, "%s", name.c_str());
+}
+#endif
+
+constexpr int SCR_W = 1020; 
 constexpr int SCR_H = 960;
+constexpr int GAME_AREA_W = 720;
+constexpr float PANEL_X = 720.0f;
+constexpr float PANEL_W = 300.0f;
+
 constexpr float BOX_W = 600.0f;
 constexpr float BOX_H = 800.0f;
-constexpr float BOX_X = (SCR_W - BOX_W) / 2.0f;
+constexpr float BOX_X = (GAME_AREA_W - BOX_W) / 2.0f;
 constexpr float BOX_Y = (SCR_H - BOX_H) / 2.0f + 20.0f;
 constexpr float DANGER_Y = BOX_Y + 80.0f;
 constexpr float GRAVITY = 2000.0f;
@@ -25,7 +54,9 @@ constexpr float FRICTION = 0.99f;
 constexpr float DROP_CD = 0.5f;
 
 const Color BG_COLOR = { 10, 15, 30, 255 };
+const Color PANEL_BG = { 15, 20, 40, 255 };
 const Color BOX_COLOR = { 40, 60, 100, 255 };
+const Color CYAN = { 0, 255, 255, 255 };
 
 const Color LVL_C[10] = {
     { 0, 255, 255, 255 },
@@ -90,6 +121,11 @@ public:
     float dangerTimer = 0.0f;
     float screenShake = 0.0f;
     float acc = 0.0f;
+
+    int totalGlobalPlayers = 1204;
+    std::vector<std::string> recentPlayers = {
+        "Sabtain05", "NeonKing", "ShapeMaster", "VercelDev", "Player_992"
+    };
 
     Game() {
         target = LoadRenderTexture(SCR_W, SCR_H);
@@ -385,7 +421,7 @@ public:
             DrawCircleV(Vector2Add(p.p, camOff), p.r * (p.life / p.maxLife), p.c);
         }
 
-        if (state == PLAYING && dropTimer <= 0.0f) {
+        if (state == PLAYING && dropTimer <= 0.0f && vMouse.x < GAME_AREA_W) {
             float hoverX = Clamp(vMouse.x, BOX_X + LVL_R[nextLvl] + 5, BOX_X + BOX_W - LVL_R[nextLvl] - 5);
             DrawGlowCircle({ hoverX + camOff.x, BOX_Y - LVL_R[nextLvl] + camOff.y - 20 }, LVL_R[nextLvl], LVL_C[nextLvl], 1.0f);
             DrawLineEx({ hoverX + camOff.x, BOX_Y + camOff.y }, { hoverX + camOff.x, BOX_Y + BOX_H + camOff.y }, 1, Fade(LVL_C[nextLvl], 0.3f));
@@ -398,20 +434,36 @@ public:
         DrawText(TextFormat("SCORE: %d", score), 20, 20, 30, WHITE);
         DrawText(TextFormat("HIGH: %d", highScore), 20, 60, 20, GRAY);
         
-        DrawText("NEXT", SCR_W - 100, 20, 20, WHITE);
-        DrawGlowCircle({ SCR_W - 60.0f, 70.0f }, LVL_R[nextLvl] * 0.5f, LVL_C[nextLvl], 1.0f);
+        DrawText("NEXT", GAME_AREA_W - 100, 20, 20, WHITE);
+        DrawGlowCircle({ GAME_AREA_W - 60.0f, 70.0f }, LVL_R[nextLvl] * 0.5f, LVL_C[nextLvl], 1.0f);
 
-        DrawText("A Sabtain Ali production", SCR_W / 2 - MeasureText("A Sabtain Ali production", 20) / 2, SCR_H - 30, 20, Fade(WHITE, 0.4f));
+        DrawText("A Sabtain Ali production", GAME_AREA_W / 2 - MeasureText("A Sabtain Ali production", 20) / 2, SCR_H - 30, 20, Fade(WHITE, 0.4f));
+
+        DrawRectangle(PANEL_X, 0, PANEL_W, SCR_H, PANEL_BG);
+        DrawLine(PANEL_X, 0, PANEL_X, SCR_H, Fade(CYAN, 0.5f));
+        
+        DrawText("GLOBAL NETWORK", PANEL_X + 25, 40, 20, CYAN);
+        DrawLine(PANEL_X + 25, 65, PANEL_X + PANEL_W - 25, 65, Fade(CYAN, 0.3f));
+        
+        DrawText("Total Players:", PANEL_X + 25, 90, 20, GRAY);
+        DrawText(TextFormat("%d", GetTotalPlayersJS()), PANEL_X + 25, 120, 40, WHITE);
+
+        DrawText("Recent Players:", PANEL_X + 25, 200, 20, GRAY);
+        for(int i = 0; i < 5; i++) {
+            char nameBuf[32] = {0};
+            GetRecentPlayerJS(i, nameBuf, 32);
+            DrawText(nameBuf, PANEL_X + 25, 240 + (i * 35), 20, WHITE);
+        }
 
         if (state == TITLE) {
-            DrawRectangle(0, 0, SCR_W, SCR_H, Fade(BLACK, 0.7f));
-            DrawText("NEON SHAPE-MERGE", SCR_W / 2 - MeasureText("NEON SHAPE-MERGE", 40) / 2, SCR_H / 2 - 100, 40, {0, 255, 255, 255});
-            DrawText("CLICK TO START", SCR_W / 2 - MeasureText("CLICK TO START", 20) / 2, SCR_H / 2, 20, WHITE);
+            DrawRectangle(0, 0, GAME_AREA_W, SCR_H, Fade(BLACK, 0.7f));
+            DrawText("NEON SHAPE-MERGE", GAME_AREA_W / 2 - MeasureText("NEON SHAPE-MERGE", 40) / 2, SCR_H / 2 - 100, 40, {0, 255, 255, 255});
+            DrawText("CLICK TO START", GAME_AREA_W / 2 - MeasureText("CLICK TO START", 20) / 2, SCR_H / 2, 20, WHITE);
         } else if (state == GAMEOVER) {
-            DrawRectangle(0, 0, SCR_W, SCR_H, Fade(BLACK, 0.8f));
-            DrawText("GAME OVER", SCR_W / 2 - MeasureText("GAME OVER", 50) / 2, SCR_H / 2 - 100, 50, RED);
-            DrawText(TextFormat("FINAL SCORE: %d", score), SCR_W / 2 - MeasureText(TextFormat("FINAL SCORE: %d", score), 30) / 2, SCR_H / 2 - 20, 30, WHITE);
-            DrawText("CLICK TO RESTART", SCR_W / 2 - MeasureText("CLICK TO RESTART", 20) / 2, SCR_H / 2 + 40, 20, GRAY);
+            DrawRectangle(0, 0, GAME_AREA_W, SCR_H, Fade(BLACK, 0.8f));
+            DrawText("GAME OVER", GAME_AREA_W / 2 - MeasureText("GAME OVER", 50) / 2, SCR_H / 2 - 100, 50, RED);
+            DrawText(TextFormat("FINAL SCORE: %d", score), GAME_AREA_W / 2 - MeasureText(TextFormat("FINAL SCORE: %d", score), 30) / 2, SCR_H / 2 - 20, 30, WHITE);
+            DrawText("CLICK TO RESTART", GAME_AREA_W / 2 - MeasureText("CLICK TO RESTART", 20) / 2, SCR_H / 2 + 40, 20, GRAY);
         }
 
         EndTextureMode();
