@@ -3,9 +3,9 @@
 A physics-based drop-and-merge puzzle game inspired by Suika Game and 2048. Built entirely in C++ with [Raylib](https://www.raylib.com/), featuring a custom 2D physics engine, zero external graphical assets (100% code-generated visuals), and a seamless WebAssembly port via Emscripten.
 
 ## Play Live
-**[https://neonshapemerge.vercel.app]**
+**https://neonshapemerge.vercel.app**
 
-## ✨ Features
+## Features
 * **Custom Physics Engine:** Fully bespoke fixed-timestep physics with rigid body circle collisions, restitution, and positional correction.
 * **Zero External Assets:** Every visual element, glow effect, and particle is drawn mathematically using Raylib primitives.
 * **Combo System:** Chain merges together quickly to multiply your score.
