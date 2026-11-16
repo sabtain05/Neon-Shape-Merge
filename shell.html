@@ -34,13 +34,40 @@
     <script>
         var Module = {
             canvas: (function() {
-                return document.getElementById('canvas');
-            })()
+                var canvas = document.getElementById('canvas');
+                canvas.addEventListener("webglcontextlost", function(e) {
+                    console.warn("WebGL context lost. Reloading page.");
+                    e.preventDefault();
+                }, false);
+                canvas.addEventListener("webglcontextcreationerror", function(e) {
+                    console.error("WebGL context creation failed:", e);
+                }, false);
+                return canvas;
+            })(),
+            webGLContextAttributes: {
+                alpha: false,
+                antialias: false,
+                depth: true,
+                stencil: false,
+                premultipliedAlpha: false,
+                preserveDrawingBuffer: false,
+                failIfMajorPerformanceCaveat: false,
+                powerPreference: "default"
+            },
+            onRuntimeInitialized: function() {
+                setTimeout(() => {
+                    let name = prompt("Enter your username for the global network:", "Guest_" + Math.floor(Math.random()*1000));
+                    if (!name || name.trim() === "") name = "Anonymous";
+                    window.registerPlayer(name.trim().substring(0, 15));
+                    setInterval(window.fetchPlayerData, 5000);
+                    window.fetchPlayerData();
+                }, 500);
+            }
         };
     </script>
     <script>
         const DB_URL = "https://neonshapemerge-default-rtdb.firebaseio.com/";
-        
+
         window.globalTotalPlayers = 0;
         window.globalRecentPlayers = ["Loading...", "", "", "", ""];
         window.hasRegistered = false;
@@ -52,7 +79,7 @@
                 if (data) {
                     let keys = Object.keys(data);
                     window.globalTotalPlayers = keys.length;
-                    
+
                     let recent = [];
                     for (let i = keys.length - 1; i >= Math.max(0, keys.length - 5); i--) {
                         recent.push(data[keys[i]].name);
@@ -75,16 +102,6 @@
                 });
                 window.fetchPlayerData();
             } catch (e) {}
-        };
-
-        window.onload = () => {
-            setTimeout(() => {
-                let name = prompt("Enter your username for the global network:", "Guest_" + Math.floor(Math.random()*1000));
-                if (!name || name.trim() === "") name = "Anonymous";
-                window.registerPlayer(name.trim().substring(0, 15)); 
-                setInterval(window.fetchPlayerData, 5000);
-                window.fetchPlayerData();
-            }, 1000);
         };
     </script>
     {{{ SCRIPT }}}

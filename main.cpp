@@ -489,7 +489,7 @@ void UpdateDrawFrame() {
 }
 
 int main() {
-    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(SCR_W, SCR_H, "Neon Shape-Merge");
     SetTargetFPS(60);
 

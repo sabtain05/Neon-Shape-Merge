@@ -49,7 +49,7 @@ cd ../..
 
 3. Compile the game to the `public/` directory:
 ```bash
-em++ -o public/index.html main.cpp -Os -Wall raylib/src/libraylib.web.a -Iraylib/src -Lraylib/src -s USE_GLFW=3 -s ALLOW_MEMORY_GROWTH=1 --shell-file shell.html -DPLATFORM_WEB
+em++ -o public/index.html main.cpp -Os -Wall raylib/src/libraylib.web.a -Iraylib/src -Lraylib/src -s USE_GLFW=3 -s FULL_ES2=1 -s ALLOW_MEMORY_GROWTH=1 --shell-file shell.html -DPLATFORM_WEB
 
 ```
 
