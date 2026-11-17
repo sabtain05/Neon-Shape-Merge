@@ -32,40 +32,6 @@
 <body>
     <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
     <script>
-        var Module = {
-            canvas: (function() {
-                var canvas = document.getElementById('canvas');
-                canvas.addEventListener("webglcontextlost", function(e) {
-                    console.warn("WebGL context lost. Reloading page.");
-                    e.preventDefault();
-                }, false);
-                canvas.addEventListener("webglcontextcreationerror", function(e) {
-                    console.error("WebGL context creation failed:", e);
-                }, false);
-                return canvas;
-            })(),
-            webGLContextAttributes: {
-                alpha: false,
-                antialias: false,
-                depth: true,
-                stencil: false,
-                premultipliedAlpha: false,
-                preserveDrawingBuffer: false,
-                failIfMajorPerformanceCaveat: false,
-                powerPreference: "default"
-            },
-            onRuntimeInitialized: function() {
-                setTimeout(() => {
-                    let name = prompt("Enter your username for the global network:", "Guest_" + Math.floor(Math.random()*1000));
-                    if (!name || name.trim() === "") name = "Anonymous";
-                    window.registerPlayer(name.trim().substring(0, 15));
-                    setInterval(window.fetchPlayerData, 5000);
-                    window.fetchPlayerData();
-                }, 500);
-            }
-        };
-    </script>
-    <script>
         const DB_URL = "https://neonshapemerge-default-rtdb.firebaseio.com";
 
         window.globalTotalPlayers = 0;
@@ -79,7 +45,6 @@
                 if (data) {
                     let keys = Object.keys(data);
                     window.globalTotalPlayers = keys.length;
-
                     let recent = [];
                     for (let i = keys.length - 1; i >= Math.max(0, keys.length - 5); i--) {
                         recent.push(data[keys[i]].name);
@@ -102,6 +67,42 @@
                 });
                 window.fetchPlayerData();
             } catch (e) {}
+        };
+
+        
+        (function() {
+            const canvas = document.getElementById('canvas');
+            const origGetContext = canvas.getContext.bind(canvas);
+            canvas.getContext = function(type, attrs) {
+                if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+                    attrs = Object.assign({}, attrs, {
+                        failIfMajorPerformanceCaveat: false,
+                        antialias: false,
+                        preserveDrawingBuffer: true
+                    });
+                }
+                const ctx = origGetContext(type, attrs);
+                if (!ctx && (type === 'webgl' || type === 'webgl2')) {
+                    document.body.innerHTML = '<div style="color:#0ff;font-family:monospace;text-align:center;margin-top:20%;padding:20px;"><h2>WebGL Unavailable</h2><p style="color:#fff;">Your browser or cloud VM has hardware acceleration & WebGL disabled.</p></div>';
+                }
+                return ctx;
+            };
+        })();
+
+        var Module = {
+            preRun: [],
+            postRun: [],
+            canvas: document.getElementById('canvas'),
+            onRuntimeInitialized: function() {
+                setTimeout(() => {
+                    let name = prompt("Enter your username for the global network:", "Guest_" + Math.floor(Math.random()*1000));
+                    if (!name || name.trim() === "") name = "Anonymous";
+                    window.registerPlayer(name.trim().substring(0, 15));
+
+                    setInterval(window.fetchPlayerData, 5000);
+                    window.fetchPlayerData();
+                }, 500);
+            }
         };
     </script>
     {{{ SCRIPT }}}
