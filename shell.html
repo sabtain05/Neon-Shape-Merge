@@ -62,13 +62,26 @@
             const probe = document.getElementById('safe-area-probe');
             if (!probe) return;
             const rect = probe.getBoundingClientRect();
-            const dpr = window.devicePixelRatio || 1;
-            window.safeInsetTop = Math.max(0, rect.top) * dpr;
-            window.safeInsetBottom = Math.max(0, window.innerHeight - rect.bottom) * dpr;
+            window.safeInsetTop = Math.max(0, rect.top);
+            window.safeInsetBottom = Math.max(0, window.innerHeight - rect.bottom);
         }
-        window.addEventListener('resize', updateSafeAreaInsets);
-        window.addEventListener('orientationchange', () => setTimeout(updateSafeAreaInsets, 150));
-        updateSafeAreaInsets();
+
+        function syncCanvasSize() {
+            const canvas = document.getElementById('canvas');
+            if (!canvas) return;
+            const w = Math.floor(window.innerWidth);
+            const h = Math.floor(window.innerHeight);
+            if (w > 0 && h > 0 && (canvas.width !== w || canvas.height !== h)) {
+                canvas.width = w;
+                canvas.height = h;
+                window.dispatchEvent(new Event('resize'));
+            }
+            updateSafeAreaInsets();
+        }
+
+        window.addEventListener('resize', syncCanvasSize);
+        window.addEventListener('orientationchange', () => setTimeout(syncCanvasSize, 150));
+        syncCanvasSize();
 
         window.fetchPlayerData = async function() {
             try {
@@ -125,7 +138,7 @@
             postRun: [],
             canvas: document.getElementById('canvas'),
             onRuntimeInitialized: function() {
-                updateSafeAreaInsets();
+                syncCanvasSize();
                 setTimeout(() => {
                     let name = prompt("Enter your username for the global network:", "Guest_" + Math.floor(Math.random()*1000));
                     if (!name || name.trim() === "") name = "Anonymous";
