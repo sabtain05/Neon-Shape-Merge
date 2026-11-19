@@ -141,7 +141,7 @@ public:
         }
     }
 
-    float GetBoxX() const { return (720.0f - BOX_W) / 2.0f; } // Always 60.0f
+    float GetBoxX() const { return (720.0f - BOX_W) / 2.0f; }
     float GetBoxY() const { return 100.0f; }
     float GetDangerY() const { return GetBoxY() + 80.0f; }
 
@@ -422,7 +422,6 @@ public:
             camOff.y = GetRandomValue(-100, 100) * 0.01f * screenShake;
         }
 
-        // Main game box
         DrawRectangleRounded({ boxX + camOff.x - 5, boxY + camOff.y - 5, BOX_W + 10, BOX_H + 10 }, 0.1f, 10, BOX_COLOR);
         DrawRectangleRounded({ boxX + camOff.x, boxY + camOff.y, BOX_W, BOX_H }, 0.1f, 10, BG_COLOR);
 
