@@ -11,6 +11,34 @@
 #include <emscripten/emscripten.h>
 #endif
 
+constexpr float BOX_W = 600.0f;
+constexpr float BOX_H = 800.0f;
+constexpr float GRAVITY = 2000.0f;
+constexpr float FIXED_DT = 1.0f / 120.0f;
+constexpr int SUBSTEPS = 8;
+constexpr float RESTITUTION = 0.2f;
+constexpr float FRICTION = 0.99f;
+constexpr float DROP_CD = 0.5f;
+
+const Color BG_COLOR = { 10, 15, 30, 255 };
+const Color PANEL_BG = { 15, 20, 40, 255 };
+const Color BOX_COLOR = { 40, 60, 100, 255 };
+
+const Color LVL_C[10] = {
+    { 0, 255, 255, 255 },
+    { 255, 0, 255, 255 },
+    { 0, 255, 0, 255 },
+    { 255, 255, 0, 255 },
+    { 255, 165, 0, 255 },
+    { 255, 105, 180, 255 },
+    { 138, 43, 226, 255 },
+    { 0, 250, 154, 255 },
+    { 255, 215, 0, 255 },
+    { 255, 255, 255, 255 }
+};
+
+const float LVL_R[10] = { 16.0f, 21.0f, 27.0f, 35.0f, 46.0f, 60.0f, 78.0f, 101.0f, 131.0f, 170.0f };
+
 #if defined(PLATFORM_WEB)
 EM_JS(int, GetTotalPlayersJS, (), {
     return window.globalTotalPlayers || 0;
@@ -34,44 +62,6 @@ void GetRecentPlayerJS(int index, char* buffer, int maxLen) {
     snprintf(buffer, maxLen, "%s", name.c_str());
 }
 #endif
-
-constexpr int SCR_W = 1020; 
-constexpr int SCR_H = 960;
-constexpr int GAME_AREA_W = 720;
-constexpr float PANEL_X = 720.0f;
-constexpr float PANEL_W = 300.0f;
-
-constexpr float BOX_W = 600.0f;
-constexpr float BOX_H = 800.0f;
-constexpr float BOX_X = (GAME_AREA_W - BOX_W) / 2.0f;
-constexpr float BOX_Y = (SCR_H - BOX_H) / 2.0f + 20.0f;
-constexpr float DANGER_Y = BOX_Y + 80.0f;
-constexpr float GRAVITY = 2000.0f;
-constexpr float FIXED_DT = 1.0f / 120.0f;
-constexpr int SUBSTEPS = 8;
-constexpr float RESTITUTION = 0.2f;
-constexpr float FRICTION = 0.99f;
-constexpr float DROP_CD = 0.5f;
-
-const Color BG_COLOR = { 10, 15, 30, 255 };
-const Color PANEL_BG = { 15, 20, 40, 255 };
-const Color BOX_COLOR = { 40, 60, 100, 255 };
-const Color CYAN = { 0, 255, 255, 255 };
-
-const Color LVL_C[10] = {
-    { 0, 255, 255, 255 },
-    { 255, 0, 255, 255 },
-    { 0, 255, 0, 255 },
-    { 255, 255, 0, 255 },
-    { 255, 165, 0, 255 },
-    { 255, 105, 180, 255 },
-    { 138, 43, 226, 255 },
-    { 0, 250, 154, 255 },
-    { 255, 215, 0, 255 },
-    { 255, 255, 255, 255 }
-};
-
-const float LVL_R[10] = { 16.0f, 21.0f, 27.0f, 35.0f, 46.0f, 60.0f, 78.0f, 101.0f, 131.0f, 170.0f };
 
 enum State { TITLE, PLAYING, GAMEOVER };
 
@@ -110,6 +100,9 @@ public:
     std::vector<FloatingText> texts;
     
     RenderTexture2D target;
+    int scrW = 1020;
+    int scrH = 960;
+    bool isPortrait = false;
     Vector2 vMouse = { 0, 0 };
 
     int nextLvl = 0;
@@ -122,13 +115,11 @@ public:
     float screenShake = 0.0f;
     float acc = 0.0f;
 
-    int totalGlobalPlayers = 1204;
-    std::vector<std::string> recentPlayers = {
-        "Sabtain05", "NeonKing", "ShapeMaster", "VercelDev", "Player_992"
-    };
-
     Game() {
-        target = LoadRenderTexture(SCR_W, SCR_H);
+        isPortrait = GetScreenHeight() > GetScreenWidth();
+        scrW = isPortrait ? 720 : 1020;
+        scrH = isPortrait ? 1200 : 960;
+        target = LoadRenderTexture(scrW, scrH);
         SetTextureFilter(target.texture, TEXTURE_FILTER_BILINEAR);
         LoadScore();
         PickNext();
@@ -138,21 +129,33 @@ public:
         UnloadRenderTexture(target);
     }
 
+    void CheckOrientation() {
+        bool nowPortrait = GetScreenHeight() > GetScreenWidth();
+        if (nowPortrait != isPortrait) {
+            isPortrait = nowPortrait;
+            scrW = isPortrait ? 720 : 1020;
+            scrH = isPortrait ? 1200 : 960;
+            UnloadRenderTexture(target);
+            target = LoadRenderTexture(scrW, scrH);
+            SetTextureFilter(target.texture, TEXTURE_FILTER_BILINEAR);
+        }
+    }
+
+    float GetBoxX() const { return (720.0f - BOX_W) / 2.0f; } // Always 60.0f
+    float GetBoxY() const { return 100.0f; }
+    float GetDangerY() const { return GetBoxY() + 80.0f; }
+
     void LoadScore() {
 #if !defined(PLATFORM_WEB)
         std::ifstream f("highscore.dat");
-        if (f.is_open()) {
-            f >> highScore;
-        }
+        if (f.is_open()) f >> highScore;
 #endif
     }
 
     void SaveScore() {
 #if !defined(PLATFORM_WEB)
         std::ofstream f("highscore.dat");
-        if (f.is_open()) {
-            f << highScore;
-        }
+        if (f.is_open()) f << highScore;
 #endif
     }
 
@@ -193,13 +196,15 @@ public:
     }
 
     void Update() {
+        CheckOrientation();
+
         float dt = GetFrameTime();
         if (dt > 0.1f) dt = 0.1f;
 
-        float scale = fmin((float)GetScreenWidth() / SCR_W, (float)GetScreenHeight() / SCR_H);
-        Vector2 rawMouse = GetMousePosition();
-        vMouse.x = (rawMouse.x - (GetScreenWidth() - (SCR_W * scale)) * 0.5f) / scale;
-        vMouse.y = (rawMouse.y - (GetScreenHeight() - (SCR_H * scale)) * 0.5f) / scale;
+        float scale = fmin((float)GetScreenWidth() / scrW, (float)GetScreenHeight() / scrH);
+        Vector2 rawInput = (GetTouchPointCount() > 0) ? GetTouchPosition(0) : GetMousePosition();
+        vMouse.x = (rawInput.x - (GetScreenWidth() - (scrW * scale)) * 0.5f) / scale;
+        vMouse.y = (rawInput.y - (GetScreenHeight() - (scrH * scale)) * 0.5f) / scale;
 
         if (state == TITLE) {
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) || IsKeyPressed(KEY_SPACE) || GetTouchPointCount() > 0) Reset();
@@ -225,11 +230,15 @@ public:
 
         if (dropTimer > 0.0f) dropTimer -= dt;
 
-        float hoverX = Clamp(vMouse.x, BOX_X + LVL_R[nextLvl] + 5, BOX_X + BOX_W - LVL_R[nextLvl] - 5);
+        float boxX = GetBoxX();
+        float boxY = GetBoxY();
+        float dangerY = GetDangerY();
+        float hoverX = Clamp(vMouse.x, boxX + LVL_R[nextLvl] + 5, boxX + BOX_W - LVL_R[nextLvl] - 5);
 
-        if ((IsMouseButtonPressed(MOUSE_LEFT_BUTTON) || GetTouchPointCount() > 0) && dropTimer <= 0.0f) {
+        bool inPlayZone = isPortrait ? (vMouse.y < 950.0f) : (vMouse.x < 720.0f);
+        if ((IsMouseButtonPressed(MOUSE_LEFT_BUTTON) || GetTouchPointCount() > 0) && dropTimer <= 0.0f && inPlayZone) {
             circles.push_back({
-                { hoverX, BOX_Y - LVL_R[nextLvl] },
+                { hoverX, boxY - LVL_R[nextLvl] },
                 { 0, 0 },
                 nextLvl,
                 LVL_R[nextLvl],
@@ -253,7 +262,7 @@ public:
                 c.scaleAnim += dt * 5.0f;
                 if (c.scaleAnim > 1.0f) c.scaleAnim = 1.0f;
             }
-            if (!c.dead && c.p.y - c.r < DANGER_Y && c.v.y > -50.0f && c.v.y < 50.0f && c.p.y > BOX_Y) {
+            if (!c.dead && c.p.y - c.r < dangerY && c.v.y > -50.0f && c.v.y < 50.0f && c.p.y > boxY) {
                 danger = true;
             }
         }
@@ -287,6 +296,8 @@ public:
 
     void StepPhysics(float dt) {
         float sdt = dt / SUBSTEPS;
+        float boxX = GetBoxX();
+        float boxY = GetBoxY();
         std::vector<MergeEvent> merges;
 
         for (int step = 0; step < SUBSTEPS; step++) {
@@ -296,18 +307,18 @@ public:
                 c.p.x += c.v.x * sdt;
                 c.p.y += c.v.y * sdt;
 
-                if (c.p.x - c.r < BOX_X) {
-                    c.p.x = BOX_X + c.r;
+                if (c.p.x - c.r < boxX) {
+                    c.p.x = boxX + c.r;
                     c.v.x *= -RESTITUTION;
                     c.v.y *= FRICTION;
-                } else if (c.p.x + c.r > BOX_X + BOX_W) {
-                    c.p.x = BOX_X + BOX_W - c.r;
+                } else if (c.p.x + c.r > boxX + BOX_W) {
+                    c.p.x = boxX + BOX_W - c.r;
                     c.v.x *= -RESTITUTION;
                     c.v.y *= FRICTION;
                 }
 
-                if (c.p.y + c.r > BOX_Y + BOX_H) {
-                    c.p.y = BOX_Y + BOX_H - c.r;
+                if (c.p.y + c.r > boxY + BOX_H) {
+                    c.p.y = boxY + BOX_H - c.r;
                     c.v.y *= -RESTITUTION;
                     c.v.x *= FRICTION;
                 }
@@ -394,12 +405,16 @@ public:
         DrawCircleV(p, sr * 1.2f, Fade(c, 0.2f));
         DrawCircleV(p, sr * 1.1f, Fade(c, 0.4f));
         DrawCircleV(p, sr, c);
-        DrawCircleLines(p.x, p.y, sr, WHITE);
+        DrawCircleLines((int)p.x, (int)p.y, sr, WHITE);
     }
 
     void Draw() {
         BeginTextureMode(target);
         ClearBackground(BG_COLOR);
+
+        float boxX = GetBoxX();
+        float boxY = GetBoxY();
+        float dangerY = GetDangerY();
 
         Vector2 camOff = { 0, 0 };
         if (screenShake > 0.0f) {
@@ -407,63 +422,88 @@ public:
             camOff.y = GetRandomValue(-100, 100) * 0.01f * screenShake;
         }
 
-        DrawRectangleRounded({ BOX_X + camOff.x - 5, BOX_Y + camOff.y - 5, BOX_W + 10, BOX_H + 10 }, 0.1f, 10, BOX_COLOR);
-        DrawRectangleRounded({ BOX_X + camOff.x, BOX_Y + camOff.y, BOX_W, BOX_H }, 0.1f, 10, BG_COLOR);
+        // Main game box
+        DrawRectangleRounded({ boxX + camOff.x - 5, boxY + camOff.y - 5, BOX_W + 10, BOX_H + 10 }, 0.1f, 10, BOX_COLOR);
+        DrawRectangleRounded({ boxX + camOff.x, boxY + camOff.y, BOX_W, BOX_H }, 0.1f, 10, BG_COLOR);
 
-        DrawLineEx({ BOX_X + camOff.x, DANGER_Y + camOff.y }, { BOX_X + BOX_W + camOff.x, DANGER_Y + camOff.y }, 2, Fade(RED, 0.5f + 0.5f * sinf(GetTime() * 5.0f)));
+        DrawLineEx({ boxX + camOff.x, dangerY + camOff.y }, { boxX + BOX_W + camOff.x, dangerY + camOff.y }, 2, Fade(RED, 0.5f + 0.5f * sinf(GetTime() * 5.0f)));
 
         for (const auto& c : circles) {
             DrawGlowCircle(Vector2Add(c.p, camOff), c.r, LVL_C[c.lvl], c.scaleAnim);
-            DrawText(std::to_string(c.lvl + 1).c_str(), c.p.x + camOff.x - 5, c.p.y + camOff.y - 10, 20, WHITE);
+            DrawText(std::to_string(c.lvl + 1).c_str(), (int)(c.p.x + camOff.x - 5), (int)(c.p.y + camOff.y - 10), 20, WHITE);
         }
 
         for (const auto& p : particles) {
             DrawCircleV(Vector2Add(p.p, camOff), p.r * (p.life / p.maxLife), p.c);
         }
 
-        if (state == PLAYING && dropTimer <= 0.0f && vMouse.x < GAME_AREA_W) {
-            float hoverX = Clamp(vMouse.x, BOX_X + LVL_R[nextLvl] + 5, BOX_X + BOX_W - LVL_R[nextLvl] - 5);
-            DrawGlowCircle({ hoverX + camOff.x, BOX_Y - LVL_R[nextLvl] + camOff.y - 20 }, LVL_R[nextLvl], LVL_C[nextLvl], 1.0f);
-            DrawLineEx({ hoverX + camOff.x, BOX_Y + camOff.y }, { hoverX + camOff.x, BOX_Y + BOX_H + camOff.y }, 1, Fade(LVL_C[nextLvl], 0.3f));
+        if (state == PLAYING && dropTimer <= 0.0f) {
+            float hoverX = Clamp(vMouse.x, boxX + LVL_R[nextLvl] + 5, boxX + BOX_W - LVL_R[nextLvl] - 5);
+            DrawGlowCircle({ hoverX + camOff.x, boxY - LVL_R[nextLvl] + camOff.y - 15 }, LVL_R[nextLvl], LVL_C[nextLvl], 1.0f);
+            DrawLineEx({ hoverX + camOff.x, boxY + camOff.y }, { hoverX + camOff.x, boxY + BOX_H + camOff.y }, 1, Fade(LVL_C[nextLvl], 0.3f));
         }
 
         for (const auto& t : texts) {
-            DrawText(t.text.c_str(), t.p.x + camOff.x - MeasureText(t.text.c_str(), 20) / 2, t.p.y + camOff.y, 20, Fade(t.c, t.life / t.maxLife));
+            DrawText(t.text.c_str(), (int)(t.p.x + camOff.x - MeasureText(t.text.c_str(), 20) / 2), (int)(t.p.y + camOff.y), 20, Fade(t.c, t.life / t.maxLife));
         }
 
         DrawText(TextFormat("SCORE: %d", score), 20, 20, 30, WHITE);
-        DrawText(TextFormat("HIGH: %d", highScore), 20, 60, 20, GRAY);
+        DrawText(TextFormat("HIGH: %d", highScore), 20, 58, 20, GRAY);
         
-        DrawText("NEXT", GAME_AREA_W - 100, 20, 20, WHITE);
-        DrawGlowCircle({ GAME_AREA_W - 60.0f, 70.0f }, LVL_R[nextLvl] * 0.5f, LVL_C[nextLvl], 1.0f);
+        DrawText("NEXT", 720 - 110, 20, 20, WHITE);
+        DrawGlowCircle({ 720 - 65.0f, 65.0f }, LVL_R[nextLvl] * 0.45f, LVL_C[nextLvl], 1.0f);
 
-        DrawText("A Sabtain Ali production", GAME_AREA_W / 2 - MeasureText("A Sabtain Ali production", 20) / 2, SCR_H - 30, 20, Fade(WHITE, 0.4f));
+        // --- RESPONSIVE GLOBAL NETWORK PANEL ---
+        if (!isPortrait) {
+            // Desktop Landscape: Right Side Panel
+            float panelX = 720.0f;
+            float panelW = 300.0f;
+            DrawRectangle((int)panelX, 0, (int)panelW, scrH, PANEL_BG);
+            DrawLine((int)panelX, 0, (int)panelX, scrH, Fade(CYAN, 0.5f));
+            
+            DrawText("GLOBAL NETWORK", (int)panelX + 25, 40, 20, CYAN);
+            DrawLine((int)panelX + 25, 65, (int)(panelX + panelW - 25), 65, Fade(CYAN, 0.3f));
+            
+            DrawText("Total Players:", (int)panelX + 25, 90, 20, GRAY);
+            DrawText(TextFormat("%d", GetTotalPlayersJS()), (int)panelX + 25, 120, 40, WHITE);
 
-        DrawRectangle(PANEL_X, 0, PANEL_W, SCR_H, PANEL_BG);
-        DrawLine(PANEL_X, 0, PANEL_X, SCR_H, Fade(CYAN, 0.5f));
-        
-        DrawText("GLOBAL NETWORK", PANEL_X + 25, 40, 20, CYAN);
-        DrawLine(PANEL_X + 25, 65, PANEL_X + PANEL_W - 25, 65, Fade(CYAN, 0.3f));
-        
-        DrawText("Total Players:", PANEL_X + 25, 90, 20, GRAY);
-        DrawText(TextFormat("%d", GetTotalPlayersJS()), PANEL_X + 25, 120, 40, WHITE);
+            DrawText("Recent Players:", (int)panelX + 25, 200, 20, GRAY);
+            for (int i = 0; i < 5; i++) {
+                char nameBuf[32] = {0};
+                GetRecentPlayerJS(i, nameBuf, 32);
+                DrawText(nameBuf, (int)panelX + 25, 240 + (i * 35), 20, WHITE);
+            }
 
-        DrawText("Recent Players:", PANEL_X + 25, 200, 20, GRAY);
-        for(int i = 0; i < 5; i++) {
-            char nameBuf[32] = {0};
-            GetRecentPlayerJS(i, nameBuf, 32);
-            DrawText(nameBuf, PANEL_X + 25, 240 + (i * 35), 20, WHITE);
+            DrawText("A Sabtain Ali production", 720 / 2 - MeasureText("A Sabtain Ali production", 20) / 2, scrH - 35, 20, Fade(WHITE, 0.4f));
+        } else {
+            // Mobile Portrait: Bottom Panel below the box
+            float panelY = 930.0f;
+            DrawRectangle(0, (int)panelY, scrW, scrH - (int)panelY, PANEL_BG);
+            DrawLine(0, (int)panelY, scrW, (int)panelY, Fade(CYAN, 0.5f));
+
+            DrawText("GLOBAL NETWORK", 40, (int)panelY + 20, 22, CYAN);
+            DrawText("Total Players:", 40, (int)panelY + 60, 20, GRAY);
+            DrawText(TextFormat("%d", GetTotalPlayersJS()), 40, (int)panelY + 90, 44, WHITE);
+
+            DrawText("Recent Players:", 340, (int)panelY + 20, 20, GRAY);
+            for (int i = 0; i < 4; i++) {
+                char nameBuf[32] = {0};
+                GetRecentPlayerJS(i, nameBuf, 32);
+                DrawText(nameBuf, 340, (int)panelY + 55 + (i * 32), 22, WHITE);
+            }
+
+            DrawText("A Sabtain Ali production", scrW / 2 - MeasureText("A Sabtain Ali production", 20) / 2, scrH - 32, 20, Fade(WHITE, 0.4f));
         }
 
         if (state == TITLE) {
-            DrawRectangle(0, 0, GAME_AREA_W, SCR_H, Fade(BLACK, 0.7f));
-            DrawText("NEON SHAPE-MERGE", GAME_AREA_W / 2 - MeasureText("NEON SHAPE-MERGE", 40) / 2, SCR_H / 2 - 100, 40, {0, 255, 255, 255});
-            DrawText("CLICK TO START", GAME_AREA_W / 2 - MeasureText("CLICK TO START", 20) / 2, SCR_H / 2, 20, WHITE);
+            DrawRectangle(0, 0, 720, isPortrait ? 930 : scrH, Fade(BLACK, 0.7f));
+            DrawText("NEON SHAPE-MERGE", 720 / 2 - MeasureText("NEON SHAPE-MERGE", 40) / 2, 420, 40, {0, 255, 255, 255});
+            DrawText("TAP TO START", 720 / 2 - MeasureText("TAP TO START", 24) / 2, 500, 24, WHITE);
         } else if (state == GAMEOVER) {
-            DrawRectangle(0, 0, GAME_AREA_W, SCR_H, Fade(BLACK, 0.8f));
-            DrawText("GAME OVER", GAME_AREA_W / 2 - MeasureText("GAME OVER", 50) / 2, SCR_H / 2 - 100, 50, RED);
-            DrawText(TextFormat("FINAL SCORE: %d", score), GAME_AREA_W / 2 - MeasureText(TextFormat("FINAL SCORE: %d", score), 30) / 2, SCR_H / 2 - 20, 30, WHITE);
-            DrawText("CLICK TO RESTART", GAME_AREA_W / 2 - MeasureText("CLICK TO RESTART", 20) / 2, SCR_H / 2 + 40, 20, GRAY);
+            DrawRectangle(0, 0, 720, isPortrait ? 930 : scrH, Fade(BLACK, 0.8f));
+            DrawText("GAME OVER", 720 / 2 - MeasureText("GAME OVER", 50) / 2, 400, 50, RED);
+            DrawText(TextFormat("FINAL SCORE: %d", score), 720 / 2 - MeasureText(TextFormat("FINAL SCORE: %d", score), 30) / 2, 480, 30, WHITE);
+            DrawText("TAP TO RESTART", 720 / 2 - MeasureText("TAP TO RESTART", 22) / 2, 540, 22, GRAY);
         }
 
         EndTextureMode();
@@ -477,20 +517,21 @@ void UpdateDrawFrame() {
     game->Draw();
 
     BeginDrawing();
-    ClearBackground(BLACK);
-    float scale = fmin((float)GetScreenWidth() / SCR_W, (float)GetScreenHeight() / SCR_H);
+    ClearBackground(BG_COLOR);
+    float scale = fmin((float)GetScreenWidth() / game->scrW, (float)GetScreenHeight() / game->scrH);
     
     DrawTexturePro(game->target.texture,
         { 0.0f, 0.0f, (float)game->target.texture.width, (float)-game->target.texture.height },
-        { (GetScreenWidth() - ((float)SCR_W * scale)) * 0.5f, (GetScreenHeight() - ((float)SCR_H * scale)) * 0.5f, (float)SCR_W * scale, (float)SCR_H * scale },
+        { (GetScreenWidth() - ((float)game->scrW * scale)) * 0.5f, (GetScreenHeight() - ((float)game->scrH * scale)) * 0.5f, (float)game->scrW * scale, (float)game->scrH * scale },
         { 0, 0 }, 0.0f, WHITE);
         
     EndDrawing();
 }
 
 int main() {
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-    InitWindow(SCR_W, SCR_H, "Neon Shape-Merge");
+    // FLAG_WINDOW_HIGHDPI eliminates blurriness on Android & Retina displays
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_HIGHDPI);
+    InitWindow(1020, 960, "Neon Shape-Merge");
     SetTargetFPS(60);
 
     game = new Game();
