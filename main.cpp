@@ -583,7 +583,6 @@ public:
             DrawCircleV(p, sr, c);
             DrawCircleLines((int)p.x, (int)p.y, sr, WHITE);
         } else {
-            // Crisp Light Mode soft drop-shadow + clean outline
             DrawCircleV({ p.x, p.y + 3.0f }, sr * 1.03f, Fade(BLACK, 0.12f));
             DrawCircleV(p, sr, c);
             DrawCircleLines((int)p.x, (int)p.y, sr, Fade(WHITE, 0.85f));
@@ -598,7 +597,6 @@ public:
         DrawRectangleRounded(btn, 0.5f, 12, pillBg);
         DrawRectangleRoundedLines(btn, 0.5f, 12, pillBorder);
 
-        // Sun / Moon indicator dot
         Vector2 iconPos = { btn.x + (isLightMode ? btn.width - 20.0f : 20.0f), btn.y + btn.height * 0.5f };
         if (isLightMode) {
             DrawCircleV(iconPos, 8.0f, Color{ 245, 158, 11, 255 });
@@ -624,7 +622,6 @@ public:
             camOff.y = GetRandomValue(-100, 100) * 0.01f * screenShake;
         }
 
-        // Main game box
         DrawRectangleRounded({ boxX + camOff.x - 5, boxY + camOff.y - 5, BOX_W + 10, BOX_H + 10 }, 0.1f, 10, GetBoxBorder());
         DrawRectangleRounded({ boxX + camOff.x, boxY + camOff.y, BOX_W, BOX_H }, 0.1f, 10, GetBgColor());
 
@@ -651,14 +648,12 @@ public:
             font.Draw(t.text, t.p.x + camOff.x, t.p.y + camOff.y, 22, Fade(t.c, t.life / t.maxLife), true, true);
         }
 
-        // Top HUD (Safe-Area Aware)
         font.Draw(TextFormat("SCORE: %d", score), 24, topPad + 14.0f, 28, GetPrimaryText(), false, true);
         font.Draw(TextFormat("HIGH: %d", highScore), 24, topPad + 50.0f, 20, GetMutedText(), false, false);
         
         font.Draw("NEXT", 720 - 125, topPad + 18.0f, 20, GetPrimaryText(), false, true);
         DrawGlowCircle({ 720 - 65.0f, topPad + 62.0f }, LVL_R[nextLvl] * 0.45f, GetBallColor(nextLvl), 1.0f);
 
-        // --- RESPONSIVE GLOBAL NETWORK PANEL ---
         if (!isPortrait) {
             float panelX = 720.0f;
             float panelW = 300.0f;
@@ -680,7 +675,6 @@ public:
 
             font.Draw("A Sabtain Ali production", 360.0f, scrH - bottomPad - 36.0f, 18, Fade(GetPrimaryText(), 0.45f), true, false);
         } else {
-            // Mobile Portrait: Dynamically adapts to iPhone, Android, and iPad heights
             float panelY = boxY + BOX_H + 24.0f;
             float availH = scrH - panelY - bottomPad;
             DrawRectangle(0, (int)panelY, scrW, scrH - (int)panelY, GetPanelBg());
@@ -701,7 +695,6 @@ public:
             font.Draw("A Sabtain Ali production", scrW * 0.5f, scrH - bottomPad - 34.0f, 18, Fade(GetPrimaryText(), 0.45f), true, false);
         }
 
-        // Overlays (Title & Game Over)
         float overlayH = isPortrait ? (boxY + BOX_H + 24.0f) : (float)scrH;
         Color overlayBg = isLightMode ? Fade(Color{ 242, 245, 252, 255 }, 0.84f) : Fade(BLACK, 0.75f);
 
@@ -715,8 +708,6 @@ public:
             font.Draw(TextFormat("FINAL SCORE: %d", score), 360.0f, boxY + 370.0f, 28, GetPrimaryText(), true, true);
             font.Draw("TAP TO RESTART", 360.0f, boxY + 430.0f, 20, GetMutedText(), true, false);
         }
-
-        // Draw Light/Dark toggle on top of overlays so it's always clickable
         DrawThemeToggle();
 
         EndTextureMode();
