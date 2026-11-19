@@ -57,7 +57,6 @@ EM_JS(void, GetRecentPlayerJS, (int index, char* buffer, int maxLen), {
     HEAP8[buffer + Math.min(name.length, maxLen - 1)] = 0;
 });
 
-// Renders crisp Apple system font text to an offscreen 2D canvas and copies RGBA bytes into WASM memory
 EM_JS(void, RenderSystemFontJS, (const char* textPtr, int fontSize, int bold, int* outW, int* outH, unsigned char** outPixels), {
     var text = UTF8ToString(textPtr);
     if (!text) text = " ";
@@ -92,7 +91,6 @@ void GetRecentPlayerJS(int index, char* buffer, int maxLen) {
 }
 #endif
 
-// Cached Apple System Font renderer (zero external .ttf assets)
 class SystemFontRenderer {
     std::unordered_map<std::string, Texture2D> cache;
 public:
@@ -113,14 +111,14 @@ public:
         std::string key = std::to_string(size) + (bold ? "B:" : "R:") + text;
         auto it = cache.find(key);
         if (it == cache.end()) {
-            if (cache.size() > 250) Clear(); // Prevent unbounded growth from dynamic score strings
+            if (cache.size() > 250) Clear();
             int w = 0, h = 0;
             unsigned char* pixels = nullptr;
             RenderSystemFontJS(text.c_str(), size, bold ? 1 : 0, &w, &h, &pixels);
             Image img = { pixels, w, h, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
             Texture2D tex = LoadTextureFromImage(img);
             SetTextureFilter(tex, TEXTURE_FILTER_BILINEAR);
-            UnloadImage(img); // Frees the malloc'd pixel buffer
+            UnloadImage(img);
             it = cache.emplace(key, tex).first;
         }
         Texture2D tex = it->second;
@@ -495,7 +493,6 @@ public:
             camOff.y = GetRandomValue(-100, 100) * 0.01f * screenShake;
         }
 
-        // Main game box
         DrawRectangleRounded({ boxX + camOff.x - 5, boxY + camOff.y - 5, BOX_W + 10, BOX_H + 10 }, 0.1f, 10, BOX_COLOR);
         DrawRectangleRounded({ boxX + camOff.x, boxY + camOff.y, BOX_W, BOX_H }, 0.1f, 10, BG_COLOR);
 
@@ -526,7 +523,6 @@ public:
         font.Draw("NEXT", 720 - 125, 22, 20, WHITE, false, true);
         DrawGlowCircle({ 720 - 65.0f, 65.0f }, LVL_R[nextLvl] * 0.45f, LVL_C[nextLvl], 1.0f);
 
-        // --- RESPONSIVE GLOBAL NETWORK PANEL ---
         if (!isPortrait) {
             float panelX = 720.0f;
             float panelW = 300.0f;
