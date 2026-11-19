@@ -453,9 +453,7 @@ public:
         DrawText("NEXT", 720 - 110, 20, 20, WHITE);
         DrawGlowCircle({ 720 - 65.0f, 65.0f }, LVL_R[nextLvl] * 0.45f, LVL_C[nextLvl], 1.0f);
 
-        // --- RESPONSIVE GLOBAL NETWORK PANEL ---
         if (!isPortrait) {
-            // Desktop Landscape: Right Side Panel
             float panelX = 720.0f;
             float panelW = 300.0f;
             DrawRectangle((int)panelX, 0, (int)panelW, scrH, PANEL_BG);
@@ -476,7 +474,6 @@ public:
 
             DrawText("A Sabtain Ali production", 720 / 2 - MeasureText("A Sabtain Ali production", 20) / 2, scrH - 35, 20, Fade(WHITE, 0.4f));
         } else {
-            // Mobile Portrait: Bottom Panel below the box
             float panelY = 930.0f;
             DrawRectangle(0, (int)panelY, scrW, scrH - (int)panelY, PANEL_BG);
             DrawLine(0, (int)panelY, scrW, (int)panelY, Fade(CYAN, 0.5f));
@@ -529,7 +526,6 @@ void UpdateDrawFrame() {
 }
 
 int main() {
-    // FLAG_WINDOW_HIGHDPI eliminates blurriness on Android & Retina displays
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_HIGHDPI);
     InitWindow(1020, 960, "Neon Shape-Merge");
     SetTargetFPS(60);
