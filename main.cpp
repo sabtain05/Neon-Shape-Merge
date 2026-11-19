@@ -457,10 +457,10 @@ public:
             float panelX = 720.0f;
             float panelW = 300.0f;
             DrawRectangle((int)panelX, 0, (int)panelW, scrH, PANEL_BG);
-            DrawLine((int)panelX, 0, (int)panelX, scrH, Fade(CYAN, 0.5f));
+            DrawLine((int)panelX, 0, (int)panelX, scrH, Fade(NEON_CYAN, 0.5f));
             
-            DrawText("GLOBAL NETWORK", (int)panelX + 25, 40, 20, CYAN);
-            DrawLine((int)panelX + 25, 65, (int)(panelX + panelW - 25), 65, Fade(CYAN, 0.3f));
+            DrawText("GLOBAL NETWORK", (int)panelX + 25, 40, 20, NEON_CYAN);
+            DrawLine((int)panelX + 25, 65, (int)(panelX + panelW - 25), 65, Fade(NEON_CYAN, 0.3f));
             
             DrawText("Total Players:", (int)panelX + 25, 90, 20, GRAY);
             DrawText(TextFormat("%d", GetTotalPlayersJS()), (int)panelX + 25, 120, 40, WHITE);
@@ -476,9 +476,9 @@ public:
         } else {
             float panelY = 930.0f;
             DrawRectangle(0, (int)panelY, scrW, scrH - (int)panelY, PANEL_BG);
-            DrawLine(0, (int)panelY, scrW, (int)panelY, Fade(CYAN, 0.5f));
+            DrawLine(0, (int)panelY, scrW, (int)panelY, Fade(NEON_CYAN, 0.5f));
 
-            DrawText("GLOBAL NETWORK", 40, (int)panelY + 20, 22, CYAN);
+            DrawText("GLOBAL NETWORK", 40, (int)panelY + 20, 22, NEON_CYAN);
             DrawText("Total Players:", 40, (int)panelY + 60, 20, GRAY);
             DrawText(TextFormat("%d", GetTotalPlayersJS()), 40, (int)panelY + 90, 44, WHITE);
 
