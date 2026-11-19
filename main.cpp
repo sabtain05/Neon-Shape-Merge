@@ -2,6 +2,7 @@
 #include "raymath.h"
 #include <vector>
 #include <string>
+#include <unordered_map>
 #include <cmath>
 #include <algorithm>
 #include <fstream>
@@ -55,6 +56,33 @@ EM_JS(void, GetRecentPlayerJS, (int index, char* buffer, int maxLen), {
     }
     HEAP8[buffer + Math.min(name.length, maxLen - 1)] = 0;
 });
+
+// Renders crisp Apple system font text to an offscreen 2D canvas and copies RGBA bytes into WASM memory
+EM_JS(void, RenderSystemFontJS, (const char* textPtr, int fontSize, int bold, int* outW, int* outH, unsigned char** outPixels), {
+    var text = UTF8ToString(textPtr);
+    if (!text) text = " ";
+    var canvas = window._fontCanvas || (window._fontCanvas = document.createElement('canvas'));
+    var ctx = canvas.getContext('2d', { willReadFrequently: true });
+    var weight = bold ? "700 " : "500 ";
+    var fontStr = weight + fontSize + 'px -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif';
+    ctx.font = fontStr;
+    var metrics = ctx.measureText(text);
+    var w = Math.max(2, Math.ceil(metrics.width) + 8);
+    var h = Math.max(2, Math.ceil(fontSize * 1.35));
+    canvas.width = w;
+    canvas.height = h;
+    ctx.clearRect(0, 0, w, h);
+    ctx.font = fontStr;
+    ctx.fillStyle = "#ffffff";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, 4, h / 2);
+    var imgData = ctx.getImageData(0, 0, w, h).data;
+    var ptr = _malloc(w * h * 4);
+    HEAPU8.set(imgData, ptr);
+    HEAP32[outW >> 2] = w;
+    HEAP32[outH >> 2] = h;
+    HEAP32[outPixels >> 2] = ptr;
+});
 #else
 int GetTotalPlayersJS() { return 1204; }
 void GetRecentPlayerJS(int index, char* buffer, int maxLen) {
@@ -63,6 +91,49 @@ void GetRecentPlayerJS(int index, char* buffer, int maxLen) {
     snprintf(buffer, maxLen, "%s", name.c_str());
 }
 #endif
+
+// Cached Apple System Font renderer (zero external .ttf assets)
+class SystemFontRenderer {
+    std::unordered_map<std::string, Texture2D> cache;
+public:
+    ~SystemFontRenderer() {
+        Clear();
+    }
+
+    void Clear() {
+        for (auto& kv : cache) {
+            UnloadTexture(kv.second);
+        }
+        cache.clear();
+    }
+
+    void Draw(const std::string& text, float x, float y, int size, Color color, bool center = false, bool bold = false) {
+        if (text.empty()) return;
+#if defined(PLATFORM_WEB)
+        std::string key = std::to_string(size) + (bold ? "B:" : "R:") + text;
+        auto it = cache.find(key);
+        if (it == cache.end()) {
+            if (cache.size() > 250) Clear(); // Prevent unbounded growth from dynamic score strings
+            int w = 0, h = 0;
+            unsigned char* pixels = nullptr;
+            RenderSystemFontJS(text.c_str(), size, bold ? 1 : 0, &w, &h, &pixels);
+            Image img = { pixels, w, h, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
+            Texture2D tex = LoadTextureFromImage(img);
+            SetTextureFilter(tex, TEXTURE_FILTER_BILINEAR);
+            UnloadImage(img); // Frees the malloc'd pixel buffer
+            it = cache.emplace(key, tex).first;
+        }
+        Texture2D tex = it->second;
+        float drawX = center ? (x - tex.width * 0.5f) : (x - 4.0f);
+        float drawY = y - (tex.height - size) * 0.5f;
+        DrawTexture(tex, (int)drawX, (int)drawY, color);
+#else
+        int w = MeasureText(text.c_str(), size);
+        float drawX = center ? (x - w * 0.5f) : x;
+        DrawText(text.c_str(), (int)drawX, (int)y, size, color);
+#endif
+    }
+};
 
 enum State { TITLE, PLAYING, GAMEOVER };
 
@@ -99,6 +170,7 @@ public:
     std::vector<Circle> circles;
     std::vector<Particle> particles;
     std::vector<FloatingText> texts;
+    SystemFontRenderer font;
     
     RenderTexture2D target;
     int scrW = 1020;
@@ -423,6 +495,7 @@ public:
             camOff.y = GetRandomValue(-100, 100) * 0.01f * screenShake;
         }
 
+        // Main game box
         DrawRectangleRounded({ boxX + camOff.x - 5, boxY + camOff.y - 5, BOX_W + 10, BOX_H + 10 }, 0.1f, 10, BOX_COLOR);
         DrawRectangleRounded({ boxX + camOff.x, boxY + camOff.y, BOX_W, BOX_H }, 0.1f, 10, BG_COLOR);
 
@@ -430,7 +503,7 @@ public:
 
         for (const auto& c : circles) {
             DrawGlowCircle(Vector2Add(c.p, camOff), c.r, LVL_C[c.lvl], c.scaleAnim);
-            DrawText(std::to_string(c.lvl + 1).c_str(), (int)(c.p.x + camOff.x - 5), (int)(c.p.y + camOff.y - 10), 20, WHITE);
+            font.Draw(std::to_string(c.lvl + 1), c.p.x + camOff.x, c.p.y + camOff.y - 10, 22, WHITE, true, true);
         }
 
         for (const auto& p : particles) {
@@ -444,63 +517,64 @@ public:
         }
 
         for (const auto& t : texts) {
-            DrawText(t.text.c_str(), (int)(t.p.x + camOff.x - MeasureText(t.text.c_str(), 20) / 2), (int)(t.p.y + camOff.y), 20, Fade(t.c, t.life / t.maxLife));
+            font.Draw(t.text, t.p.x + camOff.x, t.p.y + camOff.y, 22, Fade(t.c, t.life / t.maxLife), true, true);
         }
 
-        DrawText(TextFormat("SCORE: %d", score), 20, 20, 30, WHITE);
-        DrawText(TextFormat("HIGH: %d", highScore), 20, 58, 20, GRAY);
+        font.Draw(TextFormat("SCORE: %d", score), 24, 18, 28, WHITE, false, true);
+        font.Draw(TextFormat("HIGH: %d", highScore), 24, 54, 20, GRAY, false, false);
         
-        DrawText("NEXT", 720 - 110, 20, 20, WHITE);
+        font.Draw("NEXT", 720 - 125, 22, 20, WHITE, false, true);
         DrawGlowCircle({ 720 - 65.0f, 65.0f }, LVL_R[nextLvl] * 0.45f, LVL_C[nextLvl], 1.0f);
 
+        // --- RESPONSIVE GLOBAL NETWORK PANEL ---
         if (!isPortrait) {
             float panelX = 720.0f;
             float panelW = 300.0f;
             DrawRectangle((int)panelX, 0, (int)panelW, scrH, PANEL_BG);
             DrawLine((int)panelX, 0, (int)panelX, scrH, Fade(NEON_CYAN, 0.5f));
             
-            DrawText("GLOBAL NETWORK", (int)panelX + 25, 40, 20, NEON_CYAN);
+            font.Draw("GLOBAL NETWORK", panelX + 25, 36, 20, NEON_CYAN, false, true);
             DrawLine((int)panelX + 25, 65, (int)(panelX + panelW - 25), 65, Fade(NEON_CYAN, 0.3f));
             
-            DrawText("Total Players:", (int)panelX + 25, 90, 20, GRAY);
-            DrawText(TextFormat("%d", GetTotalPlayersJS()), (int)panelX + 25, 120, 40, WHITE);
+            font.Draw("Total Players", panelX + 25, 88, 18, GRAY, false, false);
+            font.Draw(TextFormat("%d", GetTotalPlayersJS()), panelX + 25, 115, 42, WHITE, false, true);
 
-            DrawText("Recent Players:", (int)panelX + 25, 200, 20, GRAY);
+            font.Draw("Recent Players", panelX + 25, 195, 18, GRAY, false, false);
             for (int i = 0; i < 5; i++) {
                 char nameBuf[32] = {0};
                 GetRecentPlayerJS(i, nameBuf, 32);
-                DrawText(nameBuf, (int)panelX + 25, 240 + (i * 35), 20, WHITE);
+                font.Draw(nameBuf, panelX + 25, 232 + (i * 36), 20, WHITE, false, false);
             }
 
-            DrawText("A Sabtain Ali production", 720 / 2 - MeasureText("A Sabtain Ali production", 20) / 2, scrH - 35, 20, Fade(WHITE, 0.4f));
+            font.Draw("A Sabtain Ali production", 720.0f * 0.5f, scrH - 38, 18, Fade(WHITE, 0.45f), true, false);
         } else {
             float panelY = 930.0f;
             DrawRectangle(0, (int)panelY, scrW, scrH - (int)panelY, PANEL_BG);
             DrawLine(0, (int)panelY, scrW, (int)panelY, Fade(NEON_CYAN, 0.5f));
 
-            DrawText("GLOBAL NETWORK", 40, (int)panelY + 20, 22, NEON_CYAN);
-            DrawText("Total Players:", 40, (int)panelY + 60, 20, GRAY);
-            DrawText(TextFormat("%d", GetTotalPlayersJS()), 40, (int)panelY + 90, 44, WHITE);
+            font.Draw("GLOBAL NETWORK", 40, panelY + 20, 20, NEON_CYAN, false, true);
+            font.Draw("Total Players", 40, panelY + 58, 18, GRAY, false, false);
+            font.Draw(TextFormat("%d", GetTotalPlayersJS()), 40, panelY + 86, 44, WHITE, false, true);
 
-            DrawText("Recent Players:", 340, (int)panelY + 20, 20, GRAY);
+            font.Draw("Recent Players", 340, panelY + 20, 18, GRAY, false, false);
             for (int i = 0; i < 4; i++) {
                 char nameBuf[32] = {0};
                 GetRecentPlayerJS(i, nameBuf, 32);
-                DrawText(nameBuf, 340, (int)panelY + 55 + (i * 32), 22, WHITE);
+                font.Draw(nameBuf, 340, panelY + 52 + (i * 32), 20, WHITE, false, false);
             }
 
-            DrawText("A Sabtain Ali production", scrW / 2 - MeasureText("A Sabtain Ali production", 20) / 2, scrH - 32, 20, Fade(WHITE, 0.4f));
+            font.Draw("A Sabtain Ali production", scrW * 0.5f, scrH - 34, 18, Fade(WHITE, 0.45f), true, false);
         }
 
         if (state == TITLE) {
             DrawRectangle(0, 0, 720, isPortrait ? 930 : scrH, Fade(BLACK, 0.7f));
-            DrawText("NEON SHAPE-MERGE", 720 / 2 - MeasureText("NEON SHAPE-MERGE", 40) / 2, 420, 40, {0, 255, 255, 255});
-            DrawText("TAP TO START", 720 / 2 - MeasureText("TAP TO START", 24) / 2, 500, 24, WHITE);
+            font.Draw("NEON SHAPE-MERGE", 360.0f, 415, 42, NEON_CYAN, true, true);
+            font.Draw("TAP TO START", 360.0f, 495, 22, WHITE, true, true);
         } else if (state == GAMEOVER) {
             DrawRectangle(0, 0, 720, isPortrait ? 930 : scrH, Fade(BLACK, 0.8f));
-            DrawText("GAME OVER", 720 / 2 - MeasureText("GAME OVER", 50) / 2, 400, 50, RED);
-            DrawText(TextFormat("FINAL SCORE: %d", score), 720 / 2 - MeasureText(TextFormat("FINAL SCORE: %d", score), 30) / 2, 480, 30, WHITE);
-            DrawText("TAP TO RESTART", 720 / 2 - MeasureText("TAP TO RESTART", 22) / 2, 540, 22, GRAY);
+            font.Draw("GAME OVER", 360.0f, 395, 48, RED, true, true);
+            font.Draw(TextFormat("FINAL SCORE: %d", score), 360.0f, 475, 28, WHITE, true, true);
+            font.Draw("TAP TO RESTART", 360.0f, 535, 20, GRAY, true, false);
         }
 
         EndTextureMode();
