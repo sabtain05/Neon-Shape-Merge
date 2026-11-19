@@ -24,8 +24,8 @@
             height: 100%;
             border: none;
             background-color: #0a0f1e;
-            object-fit: contain;
             outline: none;
+            display: block;
         }
     </style>
 </head>
@@ -33,7 +33,7 @@
     <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
     <script>
         const DB_URL = "https://neonshapemerge-default-rtdb.firebaseio.com";
-
+        
         window.globalTotalPlayers = 0;
         window.globalRecentPlayers = ["Loading...", "", "", "", ""];
         window.hasRegistered = false;
@@ -69,7 +69,6 @@
             } catch (e) {}
         };
 
-        
         (function() {
             const canvas = document.getElementById('canvas');
             const origGetContext = canvas.getContext.bind(canvas);
@@ -97,8 +96,8 @@
                 setTimeout(() => {
                     let name = prompt("Enter your username for the global network:", "Guest_" + Math.floor(Math.random()*1000));
                     if (!name || name.trim() === "") name = "Anonymous";
-                    window.registerPlayer(name.trim().substring(0, 15));
-
+                    window.registerPlayer(name.trim().substring(0, 15)); 
+                    
                     setInterval(window.fetchPlayerData, 5000);
                     window.fetchPlayerData();
                 }, 500);
