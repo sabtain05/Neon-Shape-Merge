@@ -21,17 +21,12 @@ constexpr float RESTITUTION = 0.2f;
 constexpr float FRICTION = 0.99f;
 constexpr float DROP_CD = 0.5f;
 
-const Color DARK_BG        = { 10, 15, 30, 255 };
-const Color DARK_PANEL_BG  = { 15, 20, 40, 255 };
-const Color DARK_BOX_COLOR = { 40, 60, 100, 255 };
-const Color DARK_ACCENT    = { 0, 255, 255, 255 };
+const Color BG_COLOR = { 10, 15, 30, 255 };
+const Color PANEL_BG = { 15, 20, 40, 255 };
+const Color BOX_COLOR = { 40, 60, 100, 255 };
+const Color NEON_CYAN = { 0, 255, 255, 255 };
 
-const Color LIGHT_BG        = { 242, 245, 252, 255 };
-const Color LIGHT_PANEL_BG  = { 228, 234, 246, 255 };
-const Color LIGHT_BOX_COLOR = { 180, 194, 220, 255 };
-const Color LIGHT_ACCENT    = { 0, 132, 210, 255 };
-
-const Color LVL_C_DARK[10] = {
+const Color LVL_C[10] = {
     { 0, 255, 255, 255 },
     { 255, 0, 255, 255 },
     { 0, 255, 0, 255 },
@@ -42,19 +37,6 @@ const Color LVL_C_DARK[10] = {
     { 0, 250, 154, 255 },
     { 255, 215, 0, 255 },
     { 255, 255, 255, 255 }
-};
-
-const Color LVL_C_LIGHT[10] = {
-    { 0, 188, 212, 255 },
-    { 216, 27, 96, 255 },
-    { 46, 160, 67, 255 },
-    { 230, 175, 0, 255 },
-    { 239, 108, 0, 255 },
-    { 225, 65, 135, 255 },
-    { 115, 45, 200, 255 },
-    { 0, 168, 120, 255 },
-    { 212, 155, 0, 255 },
-    { 55, 65, 85, 255 }
 };
 
 const float LVL_R[10] = { 16.0f, 21.0f, 27.0f, 35.0f, 46.0f, 60.0f, 78.0f, 101.0f, 131.0f, 170.0f };
@@ -73,14 +55,6 @@ EM_JS(void, GetRecentPlayerJS, (int index, char* buffer, int maxLen), {
         HEAP8[buffer + i] = name.charCodeAt(i);
     }
     HEAP8[buffer + Math.min(name.length, maxLen - 1)] = 0;
-});
-
-EM_JS(void, SetPageThemeJS, (int isLight), {
-    var bg = isLight ? "#f2f5fc" : "#0a0f1e";
-    document.documentElement.style.backgroundColor = bg;
-    document.body.style.backgroundColor = bg;
-    var c = document.getElementById('canvas');
-    if (c) c.style.backgroundColor = bg;
 });
 
 EM_JS(float, GetSafeInsetTopJS, (), {
@@ -123,7 +97,6 @@ void GetRecentPlayerJS(int index, char* buffer, int maxLen) {
     std::string name = (index < 5) ? mock[index] : "";
     snprintf(buffer, maxLen, "%s", name.c_str());
 }
-void SetPageThemeJS(int isLight) { (void)isLight; }
 float GetSafeInsetTopJS() { return 0.0f; }
 float GetSafeInsetBottomJS() { return 0.0f; }
 #endif
@@ -202,7 +175,6 @@ struct MergeEvent {
 class Game {
 public:
     State state = TITLE;
-    bool isLightMode = false;
     std::vector<Circle> circles;
     std::vector<Particle> particles;
     std::vector<FloatingText> texts;
@@ -211,8 +183,6 @@ public:
     RenderTexture2D target;
     int scrW = 1020;
     int scrH = 960;
-    int lastWinW = 0;
-    int lastWinH = 0;
     bool isPortrait = false;
     float topPad = 0.0f;
     float bottomPad = 0.0f;
@@ -233,23 +203,10 @@ public:
         UpdateViewportMetrics(true);
         LoadScore();
         PickNext();
-        SetPageThemeJS(0);
     }
 
     ~Game() {
         UnloadRenderTexture(target);
-    }
-
-    Color GetBgColor() const      { return isLightMode ? LIGHT_BG : DARK_BG; }
-    Color GetPanelBg() const      { return isLightMode ? LIGHT_PANEL_BG : DARK_PANEL_BG; }
-    Color GetBoxBorder() const    { return isLightMode ? LIGHT_BOX_COLOR : DARK_BOX_COLOR; }
-    Color GetAccentColor() const  { return isLightMode ? LIGHT_ACCENT : DARK_ACCENT; }
-    Color GetPrimaryText() const  { return isLightMode ? Color{ 20, 28, 48, 255 } : WHITE; }
-    Color GetMutedText() const    { return isLightMode ? Color{ 95, 110, 138, 255 } : GRAY; }
-    Color GetBallColor(int lvl) const { return isLightMode ? LVL_C_LIGHT[lvl] : LVL_C_DARK[lvl]; }
-
-    Rectangle GetThemeButtonRect() const {
-        return { 360.0f - 62.0f, topPad + 16.0f, 124.0f, 38.0f };
     }
 
     void UpdateViewportMetrics(bool forceInit = false) {
@@ -278,8 +235,6 @@ public:
             target = LoadRenderTexture(scrW, scrH);
             SetTextureFilter(target.texture, TEXTURE_FILTER_BILINEAR);
         }
-        lastWinW = winW;
-        lastWinH = winH;
     }
 
     float GetBoxX() const { return (720.0f - BOX_W) * 0.5f; }
@@ -336,11 +291,6 @@ public:
         PickNext();
     }
 
-    void ToggleTheme() {
-        isLightMode = !isLightMode;
-        SetPageThemeJS(isLightMode ? 1 : 0);
-    }
-
     void Update() {
         UpdateViewportMetrics(false);
 
@@ -361,13 +311,6 @@ public:
         bool touchReleased = (!isTouching && wasTouching);
         wasTouching = isTouching;
 
-        Rectangle btnRect = GetThemeButtonRect();
-        Rectangle hitRect = { btnRect.x - 12.0f, btnRect.y - 10.0f, btnRect.width + 24.0f, btnRect.height + 20.0f };
-        if (tapPressed && CheckCollisionPointRec(vMouse, hitRect)) {
-            ToggleTheme();
-            return;
-        }
-
         if (state == TITLE) {
             if (tapPressed || IsKeyPressed(KEY_SPACE)) Reset();
             return;
@@ -379,7 +322,6 @@ public:
         }
 
         if (IsKeyPressed(KEY_R)) Reset();
-        if (IsKeyPressed(KEY_T)) ToggleTheme();
 
         if (screenShake > 0.0f) {
             screenShake -= dt * 60.0f;
@@ -400,6 +342,7 @@ public:
 
         float maxPlayY = boxY + BOX_H + 20.0f;
         bool inPlayZone = isPortrait ? (vMouse.y >= topPad + 60.0f && vMouse.y <= maxPlayY) : (vMouse.x < 720.0f && vMouse.y >= topPad + 60.0f);
+
         bool triggerDrop = IsMouseButtonPressed(MOUSE_LEFT_BUTTON) || touchReleased;
         if (triggerDrop && dropTimer <= 0.0f && inPlayZone) {
             circles.push_back({
@@ -545,7 +488,7 @@ public:
             int pts = m.nextLvl * m.nextLvl * 10 * combo;
             score += pts;
             
-            Color mCol = GetBallColor(m.nextLvl - 1);
+            Color mCol = LVL_C[m.nextLvl - 1];
             SpawnParticles(m.p, mCol, 20);
             AddText(m.p, "+" + std::to_string(pts) + (combo > 1 ? " (x" + std::to_string(combo) + ")" : ""), mCol);
 
@@ -560,48 +503,23 @@ public:
             } else {
                 screenShake += 20.0f;
                 score += 10000;
-                AddText(m.p, "SUPERNOVA! +10000", GetPrimaryText());
-                SpawnParticles(m.p, GetPrimaryText(), 50);
+                AddText(m.p, "SUPERNOVA! +10000", WHITE);
+                SpawnParticles(m.p, WHITE, 50);
             }
         }
     }
 
     void DrawGlowCircle(Vector2 p, float r, Color c, float scale) {
         float sr = r * scale;
-        if (!isLightMode) {
-            DrawCircleV(p, sr * 1.2f, Fade(c, 0.2f));
-            DrawCircleV(p, sr * 1.1f, Fade(c, 0.4f));
-            DrawCircleV(p, sr, c);
-            DrawCircleLines((int)p.x, (int)p.y, sr, WHITE);
-        } else {
-            DrawCircleV({ p.x, p.y + 3.0f }, sr * 1.03f, Fade(BLACK, 0.12f));
-            DrawCircleV(p, sr, c);
-            DrawCircleLines((int)p.x, (int)p.y, sr, Fade(WHITE, 0.85f));
-        }
-    }
-
-    void DrawThemeToggle() {
-        Rectangle btn = GetThemeButtonRect();
-        Color pillBg = isLightMode ? Color{ 218, 226, 242, 255 } : Color{ 22, 32, 58, 255 };
-        Color pillBorder = isLightMode ? Color{ 150, 168, 200, 255 } : Fade(DARK_ACCENT, 0.55f);
-
-        DrawRectangleRounded(btn, 0.5f, 12, pillBg);
-        DrawRectangleRoundedLines(btn, 0.5f, 12, pillBorder);
-
-        Vector2 iconPos = { btn.x + (isLightMode ? btn.width - 20.0f : 20.0f), btn.y + btn.height * 0.5f };
-        if (isLightMode) {
-            DrawCircleV(iconPos, 8.0f, Color{ 245, 158, 11, 255 });
-            font.Draw("LIGHT", btn.x + 44.0f, btn.y + 10.0f, 16, GetPrimaryText(), true, true);
-        } else {
-            DrawCircleV(iconPos, 8.0f, DARK_ACCENT);
-            DrawCircleV({ iconPos.x + 3.0f, iconPos.y - 2.0f }, 6.5f, pillBg);
-            font.Draw("DARK", btn.x + 76.0f, btn.y + 10.0f, 16, WHITE, true, true);
-        }
+        DrawCircleV(p, sr * 1.2f, Fade(c, 0.2f));
+        DrawCircleV(p, sr * 1.1f, Fade(c, 0.4f));
+        DrawCircleV(p, sr, c);
+        DrawCircleLines((int)p.x, (int)p.y, sr, WHITE);
     }
 
     void Draw() {
         BeginTextureMode(target);
-        ClearBackground(GetBgColor());
+        ClearBackground(BG_COLOR);
 
         float boxX = GetBoxX();
         float boxY = GetBoxY();
@@ -613,15 +531,14 @@ public:
             camOff.y = GetRandomValue(-100, 100) * 0.01f * screenShake;
         }
 
-        DrawRectangleRounded({ boxX + camOff.x - 5, boxY + camOff.y - 5, BOX_W + 10, BOX_H + 10 }, 0.1f, 10, GetBoxBorder());
-        DrawRectangleRounded({ boxX + camOff.x, boxY + camOff.y, BOX_W, BOX_H }, 0.1f, 10, GetBgColor());
+        DrawRectangleRounded({ boxX + camOff.x - 5, boxY + camOff.y - 5, BOX_W + 10, BOX_H + 10 }, 0.1f, 10, BOX_COLOR);
+        DrawRectangleRounded({ boxX + camOff.x, boxY + camOff.y, BOX_W, BOX_H }, 0.1f, 10, BG_COLOR);
 
         DrawLineEx({ boxX + camOff.x, dangerY + camOff.y }, { boxX + BOX_W + camOff.x, dangerY + camOff.y }, 2, Fade(RED, 0.5f + 0.5f * sinf(GetTime() * 5.0f)));
 
         for (const auto& c : circles) {
-            DrawGlowCircle(Vector2Add(c.p, camOff), c.r, GetBallColor(c.lvl), c.scaleAnim);
-            Color numCol = (isLightMode && c.lvl == 9) ? WHITE : (isLightMode ? Color{ 255, 255, 255, 255 } : WHITE);
-            font.Draw(std::to_string(c.lvl + 1), c.p.x + camOff.x, c.p.y + camOff.y - 10, 22, numCol, true, true);
+            DrawGlowCircle(Vector2Add(c.p, camOff), c.r, LVL_C[c.lvl], c.scaleAnim);
+            font.Draw(std::to_string(c.lvl + 1), c.p.x + camOff.x, c.p.y + camOff.y - 10, 22, WHITE, true, true);
         }
 
         for (const auto& p : particles) {
@@ -630,76 +547,75 @@ public:
 
         if (state == PLAYING && dropTimer <= 0.0f) {
             float hoverX = Clamp(vMouse.x, boxX + LVL_R[nextLvl] + 5, boxX + BOX_W - LVL_R[nextLvl] - 5);
-            Color nextCol = GetBallColor(nextLvl);
+            Color nextCol = LVL_C[nextLvl];
             DrawGlowCircle({ hoverX + camOff.x, boxY - LVL_R[nextLvl] + camOff.y - 12 }, LVL_R[nextLvl], nextCol, 1.0f);
-            DrawLineEx({ hoverX + camOff.x, boxY + camOff.y }, { hoverX + camOff.x, boxY + BOX_H + camOff.y }, 1, Fade(nextCol, isLightMode ? 0.45f : 0.3f));
+            DrawLineEx({ hoverX + camOff.x, boxY + camOff.y }, { hoverX + camOff.x, boxY + BOX_H + camOff.y }, 1, Fade(nextCol, 0.3f));
         }
 
         for (const auto& t : texts) {
             font.Draw(t.text, t.p.x + camOff.x, t.p.y + camOff.y, 22, Fade(t.c, t.life / t.maxLife), true, true);
         }
 
-        font.Draw(TextFormat("SCORE: %d", score), 24, topPad + 14.0f, 28, GetPrimaryText(), false, true);
-        font.Draw(TextFormat("HIGH: %d", highScore), 24, topPad + 50.0f, 20, GetMutedText(), false, false);
+        font.Draw(TextFormat("SCORE: %d", score), 24, topPad + 14.0f, 28, WHITE, false, true);
+        font.Draw(TextFormat("HIGH: %d", highScore), 24, topPad + 50.0f, 20, GRAY, false, false);
         
-        font.Draw("NEXT", 720 - 125, topPad + 18.0f, 20, GetPrimaryText(), false, true);
-        DrawGlowCircle({ 720 - 65.0f, topPad + 62.0f }, LVL_R[nextLvl] * 0.45f, GetBallColor(nextLvl), 1.0f);
+        font.Draw("NEXT", 720 - 125, topPad + 18.0f, 20, WHITE, false, true);
+        DrawGlowCircle({ 720 - 65.0f, topPad + 62.0f }, LVL_R[nextLvl] * 0.45f, LVL_C[nextLvl], 1.0f);
 
         if (!isPortrait) {
             float panelX = 720.0f;
             float panelW = 300.0f;
-            DrawRectangle((int)panelX, 0, (int)panelW, scrH, GetPanelBg());
-            DrawLine((int)panelX, 0, (int)panelX, scrH, Fade(GetAccentColor(), 0.5f));
+            DrawRectangle((int)panelX, 0, (int)panelW, scrH, PANEL_BG);
+            DrawLine((int)panelX, 0, (int)panelX, scrH, Fade(NEON_CYAN, 0.5f));
             
-            font.Draw("GLOBAL NETWORK", panelX + 25, topPad + 36.0f, 20, GetAccentColor(), false, true);
-            DrawLine((int)panelX + 25, (int)(topPad + 65.0f), (int)(panelX + panelW - 25), (int)(topPad + 65.0f), Fade(GetAccentColor(), 0.3f));
+            font.Draw("GLOBAL NETWORK", panelX + 25, topPad + 36.0f, 20, NEON_CYAN, false, true);
+            DrawLine((int)panelX + 25, (int)(topPad + 65.0f), (int)(panelX + panelW - 25), (int)(topPad + 65.0f), Fade(NEON_CYAN, 0.3f));
             
-            font.Draw("Total Players", panelX + 25, topPad + 88.0f, 18, GetMutedText(), false, false);
-            font.Draw(TextFormat("%d", GetTotalPlayersJS()), panelX + 25, topPad + 115.0f, 42, GetPrimaryText(), false, true);
+            font.Draw("Total Players", panelX + 25, topPad + 88.0f, 18, GRAY, false, false);
+            font.Draw(TextFormat("%d", GetTotalPlayersJS()), panelX + 25, topPad + 115.0f, 42, WHITE, false, true);
 
-            font.Draw("Recent Players", panelX + 25, topPad + 195.0f, 18, GetMutedText(), false, false);
+            font.Draw("Recent Players", panelX + 25, topPad + 195.0f, 18, GRAY, false, false);
             for (int i = 0; i < 5; i++) {
                 char nameBuf[32] = {0};
                 GetRecentPlayerJS(i, nameBuf, 32);
-                font.Draw(nameBuf, panelX + 25, topPad + 232.0f + (i * 36), 20, GetPrimaryText(), false, false);
+                font.Draw(nameBuf, panelX + 25, topPad + 232.0f + (i * 36), 20, WHITE, false, false);
             }
 
-            font.Draw("A Sabtain Ali production", 360.0f, scrH - bottomPad - 36.0f, 18, Fade(GetPrimaryText(), 0.45f), true, false);
+            font.Draw("A Sabtain Ali production", 360.0f, scrH - bottomPad - 36.0f, 18, Fade(WHITE, 0.45f), true, false);
         } else {
             float panelY = boxY + BOX_H + 24.0f;
             float availH = scrH - panelY - bottomPad;
-            DrawRectangle(0, (int)panelY, scrW, scrH - (int)panelY, GetPanelBg());
-            DrawLine(0, (int)panelY, scrW, (int)panelY, Fade(GetAccentColor(), 0.5f));
+            DrawRectangle(0, (int)panelY, scrW, scrH - (int)panelY, PANEL_BG);
+            DrawLine(0, (int)panelY, scrW, (int)panelY, Fade(NEON_CYAN, 0.5f));
 
-            font.Draw("GLOBAL NETWORK", 40, panelY + 18.0f, 20, GetAccentColor(), false, true);
-            font.Draw("Total Players", 40, panelY + 54.0f, 18, GetMutedText(), false, false);
-            font.Draw(TextFormat("%d", GetTotalPlayersJS()), 40, panelY + 82.0f, 44, GetPrimaryText(), false, true);
+            font.Draw("GLOBAL NETWORK", 40, panelY + 18.0f, 20, NEON_CYAN, false, true);
+            font.Draw("Total Players", 40, panelY + 54.0f, 18, GRAY, false, false);
+            font.Draw(TextFormat("%d", GetTotalPlayersJS()), 40, panelY + 82.0f, 44, WHITE, false, true);
 
-            font.Draw("Recent Players", 340, panelY + 18.0f, 18, GetMutedText(), false, false);
+            font.Draw("Recent Players", 340, panelY + 18.0f, 18, GRAY, false, false);
             int maxRows = (availH > 260.0f) ? 5 : 4;
             for (int i = 0; i < maxRows; i++) {
                 char nameBuf[32] = {0};
                 GetRecentPlayerJS(i, nameBuf, 32);
-                font.Draw(nameBuf, 340, panelY + 50.0f + (i * 32), 20, GetPrimaryText(), false, false);
+                font.Draw(nameBuf, 340, panelY + 50.0f + (i * 32), 20, WHITE, false, false);
             }
 
-            font.Draw("A Sabtain Ali production", scrW * 0.5f, scrH - bottomPad - 34.0f, 18, Fade(GetPrimaryText(), 0.45f), true, false);
+            font.Draw("A Sabtain Ali production", scrW * 0.5f, scrH - bottomPad - 34.0f, 18, Fade(WHITE, 0.45f), true, false);
         }
 
         float overlayH = isPortrait ? (boxY + BOX_H + 24.0f) : (float)scrH;
-        Color overlayBg = isLightMode ? Fade(Color{ 242, 245, 252, 255 }, 0.84f) : Fade(BLACK, 0.75f);
+        Color overlayBg = Fade(BLACK, 0.75f);
 
         if (state == TITLE) {
             DrawRectangle(0, 0, 720, (int)overlayH, overlayBg);
-            font.Draw("NEON SHAPE-MERGE", 360.0f, boxY + 310.0f, 42, GetAccentColor(), true, true);
-            font.Draw("TAP TO START", 360.0f, boxY + 390.0f, 22, GetPrimaryText(), true, true);
+            font.Draw("NEON SHAPE-MERGE", 360.0f, boxY + 310.0f, 42, NEON_CYAN, true, true);
+            font.Draw("TAP TO START", 360.0f, boxY + 390.0f, 22, WHITE, true, true);
         } else if (state == GAMEOVER) {
             DrawRectangle(0, 0, 720, (int)overlayH, overlayBg);
             font.Draw("GAME OVER", 360.0f, boxY + 290.0f, 48, RED, true, true);
-            font.Draw(TextFormat("FINAL SCORE: %d", score), 360.0f, boxY + 370.0f, 28, GetPrimaryText(), true, true);
-            font.Draw("TAP TO RESTART", 360.0f, boxY + 430.0f, 20, GetMutedText(), true, false);
+            font.Draw(TextFormat("FINAL SCORE: %d", score), 360.0f, boxY + 370.0f, 28, WHITE, true, true);
+            font.Draw("TAP TO RESTART", 360.0f, boxY + 430.0f, 20, GRAY, true, false);
         }
-        DrawThemeToggle();
 
         EndTextureMode();
     }
@@ -712,7 +628,7 @@ void UpdateDrawFrame() {
     game->Draw();
 
     BeginDrawing();
-    ClearBackground(game->GetBgColor());
+    ClearBackground(BG_COLOR);
     float scale = fmin((float)GetScreenWidth() / game->scrW, (float)GetScreenHeight() / game->scrH);
     
     DrawTexturePro(game->target.texture,
@@ -724,7 +640,7 @@ void UpdateDrawFrame() {
 }
 
 int main() {
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_HIGHDPI);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(1020, 960, "Neon Shape-Merge");
     SetTargetFPS(60);
 
