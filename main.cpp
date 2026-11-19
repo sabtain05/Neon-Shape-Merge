@@ -21,19 +21,16 @@ constexpr float RESTITUTION = 0.2f;
 constexpr float FRICTION = 0.99f;
 constexpr float DROP_CD = 0.5f;
 
-// Dark Mode Colors (Exact original palette)
 const Color DARK_BG        = { 10, 15, 30, 255 };
 const Color DARK_PANEL_BG  = { 15, 20, 40, 255 };
 const Color DARK_BOX_COLOR = { 40, 60, 100, 255 };
 const Color DARK_ACCENT    = { 0, 255, 255, 255 };
 
-// Light Mode Colors
 const Color LIGHT_BG        = { 242, 245, 252, 255 };
 const Color LIGHT_PANEL_BG  = { 228, 234, 246, 255 };
 const Color LIGHT_BOX_COLOR = { 180, 194, 220, 255 };
 const Color LIGHT_ACCENT    = { 0, 132, 210, 255 };
 
-// Dark Mode Ball Colors (Exact original)
 const Color LVL_C_DARK[10] = {
     { 0, 255, 255, 255 },
     { 255, 0, 255, 255 },
@@ -47,7 +44,6 @@ const Color LVL_C_DARK[10] = {
     { 255, 255, 255, 255 }
 };
 
-// Light Mode Ball Colors (Tuned for high contrast on bright background)
 const Color LVL_C_LIGHT[10] = {
     { 0, 188, 212, 255 },
     { 216, 27, 96, 255 },
@@ -206,7 +202,7 @@ struct MergeEvent {
 class Game {
 public:
     State state = TITLE;
-    bool isLightMode = false; // Default Dark Mode (exact original theme)
+    bool isLightMode = false;
     std::vector<Circle> circles;
     std::vector<Particle> particles;
     std::vector<FloatingText> texts;
@@ -266,7 +262,6 @@ public:
         int newH = 960;
 
         if (nowPortrait) {
-            // Adapt virtual height to exact mobile aspect ratio (iPhone, Android, iPad)
             float aspect = (float)winH / (float)winW;
             newH = (int)Clamp(720.0f * aspect, 1140.0f, 1620.0f);
         }
@@ -287,7 +282,7 @@ public:
         lastWinH = winH;
     }
 
-    float GetBoxX() const { return (720.0f - BOX_W) * 0.5f; } // 60.0f
+    float GetBoxX() const { return (720.0f - BOX_W) * 0.5f; }
     float GetBoxY() const { return topPad + 105.0f; }
     float GetDangerY() const { return GetBoxY() + 80.0f; }
 
@@ -335,7 +330,7 @@ public:
         combo = 0;
         comboTimer = 0.0f;
         dangerTimer = 0.0f;
-        dropTimer = 0.15f; // Tiny grace delay so tap-to-start doesn't instant-drop
+        dropTimer = 0.15f;
         screenShake = 0.0f;
         state = PLAYING;
         PickNext();
@@ -366,7 +361,6 @@ public:
         bool touchReleased = (!isTouching && wasTouching);
         wasTouching = isTouching;
 
-        // Handle Light/Dark Toggle Button in ANY game state
         Rectangle btnRect = GetThemeButtonRect();
         Rectangle hitRect = { btnRect.x - 12.0f, btnRect.y - 10.0f, btnRect.width + 24.0f, btnRect.height + 20.0f };
         if (tapPressed && CheckCollisionPointRec(vMouse, hitRect)) {
@@ -406,8 +400,6 @@ public:
 
         float maxPlayY = boxY + BOX_H + 20.0f;
         bool inPlayZone = isPortrait ? (vMouse.y >= topPad + 60.0f && vMouse.y <= maxPlayY) : (vMouse.x < 720.0f && vMouse.y >= topPad + 60.0f);
-
-        // Drop on desktop click OR mobile touch release (allows dragging finger to aim!)
         bool triggerDrop = IsMouseButtonPressed(MOUSE_LEFT_BUTTON) || touchReleased;
         if (triggerDrop && dropTimer <= 0.0f && inPlayZone) {
             circles.push_back({
@@ -577,7 +569,6 @@ public:
     void DrawGlowCircle(Vector2 p, float r, Color c, float scale) {
         float sr = r * scale;
         if (!isLightMode) {
-            // Exact original Dark Mode glow
             DrawCircleV(p, sr * 1.2f, Fade(c, 0.2f));
             DrawCircleV(p, sr * 1.1f, Fade(c, 0.4f));
             DrawCircleV(p, sr, c);
