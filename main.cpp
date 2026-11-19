@@ -23,6 +23,7 @@ constexpr float DROP_CD = 0.5f;
 const Color BG_COLOR = { 10, 15, 30, 255 };
 const Color PANEL_BG = { 15, 20, 40, 255 };
 const Color BOX_COLOR = { 40, 60, 100, 255 };
+const Color NEON_CYAN = { 0, 255, 255, 255 };
 
 const Color LVL_C[10] = {
     { 0, 255, 255, 255 },
